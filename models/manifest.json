@@ -1,0 +1,863 @@
+{
+  "generated": "2026-11-07T07:28:56.255Z",
+  "up": "Y",
+  "forward": "+Z",
+  "unit": "metre",
+  "categories": [
+    {
+      "id": "characters",
+      "title": "Главные персонажи",
+      "models": [
+        {
+          "id": "knight_normal",
+          "title": "Обычный Рыцарь",
+          "file": "characters/knight_normal.glb",
+          "bytes": 506220,
+          "triangles": 10934,
+          "vertices": 17392,
+          "meshes": 47,
+          "materials": 12,
+          "size": [
+            1.09,
+            1.64,
+            0.86
+          ],
+          "animations": [
+            "Idle",
+            "Walk",
+            "Attack"
+          ]
+        },
+        {
+          "id": "knight_dark",
+          "title": "Тёмный Рыцарь",
+          "file": "characters/knight_dark.glb",
+          "bytes": 525444,
+          "triangles": 11150,
+          "vertices": 17980,
+          "meshes": 51,
+          "materials": 10,
+          "size": [
+            1.02,
+            1.71,
+            0.9
+          ],
+          "animations": [
+            "Idle",
+            "Walk",
+            "Attack"
+          ]
+        },
+        {
+          "id": "paladin",
+          "title": "Паладин",
+          "file": "characters/paladin.glb",
+          "bytes": 592516,
+          "triangles": 13804,
+          "vertices": 19672,
+          "meshes": 60,
+          "materials": 13,
+          "size": [
+            1.17,
+            1.75,
+            0.73
+          ],
+          "animations": [
+            "Idle",
+            "Walk",
+            "Attack"
+          ]
+        },
+        {
+          "id": "mage_knight",
+          "title": "Маг-рыцарь",
+          "file": "characters/mage_knight.glb",
+          "bytes": 517924,
+          "triangles": 14328,
+          "vertices": 16314,
+          "meshes": 56,
+          "materials": 10,
+          "size": [
+            0.94,
+            1.86,
+            1.04
+          ],
+          "animations": [
+            "Idle",
+            "Walk",
+            "Attack"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "weapons",
+      "title": "Оружие",
+      "models": [
+        {
+          "id": "sword_wooden",
+          "title": "Деревянный меч",
+          "file": "weapons/sword_wooden.glb",
+          "bytes": 84040,
+          "triangles": 1888,
+          "vertices": 2767,
+          "meshes": 11,
+          "materials": 4,
+          "size": [
+            0.34,
+            0.95,
+            0.08
+          ],
+          "animations": []
+        },
+        {
+          "id": "sword_iron",
+          "title": "Железный меч",
+          "file": "weapons/sword_iron.glb",
+          "bytes": 84196,
+          "triangles": 1888,
+          "vertices": 2767,
+          "meshes": 11,
+          "materials": 5,
+          "size": [
+            0.34,
+            1.01,
+            0.08
+          ],
+          "animations": []
+        },
+        {
+          "id": "sword_gold",
+          "title": "Золотой меч",
+          "file": "weapons/sword_gold.glb",
+          "bytes": 72076,
+          "triangles": 1728,
+          "vertices": 2247,
+          "meshes": 11,
+          "materials": 6,
+          "size": [
+            0.49,
+            1.05,
+            0.09
+          ],
+          "animations": []
+        },
+        {
+          "id": "sword_fire",
+          "title": "Огненный меч",
+          "file": "weapons/sword_fire.glb",
+          "bytes": 77128,
+          "triangles": 2096,
+          "vertices": 2208,
+          "meshes": 14,
+          "materials": 6,
+          "size": [
+            0.56,
+            1.09,
+            0.15
+          ],
+          "animations": []
+        },
+        {
+          "id": "sword_ice",
+          "title": "Ледяной меч",
+          "file": "weapons/sword_ice.glb",
+          "bytes": 98404,
+          "triangles": 2040,
+          "vertices": 3183,
+          "meshes": 16,
+          "materials": 5,
+          "size": [
+            0.41,
+            1.17,
+            0.09
+          ],
+          "animations": []
+        },
+        {
+          "id": "sword_dragon",
+          "title": "Меч дракона",
+          "file": "weapons/sword_dragon.glb",
+          "bytes": 129712,
+          "triangles": 2472,
+          "vertices": 4456,
+          "meshes": 16,
+          "materials": 6,
+          "size": [
+            0.56,
+            1.13,
+            0.09
+          ],
+          "animations": []
+        },
+        {
+          "id": "sword_dark",
+          "title": "Тёмный меч (бонус)",
+          "file": "weapons/sword_dark.glb",
+          "bytes": 123404,
+          "triangles": 2424,
+          "vertices": 4335,
+          "meshes": 13,
+          "materials": 5,
+          "size": [
+            0.56,
+            1.15,
+            0.09
+          ],
+          "animations": []
+        },
+        {
+          "id": "axe_warrior",
+          "title": "Топор воина",
+          "file": "weapons/axe_warrior.glb",
+          "bytes": 81048,
+          "triangles": 1372,
+          "vertices": 2839,
+          "meshes": 10,
+          "materials": 5,
+          "size": [
+            0.54,
+            1.24,
+            0.1
+          ],
+          "animations": []
+        },
+        {
+          "id": "hammer_titan",
+          "title": "Молот титана",
+          "file": "weapons/hammer_titan.glb",
+          "bytes": 175560,
+          "triangles": 2640,
+          "vertices": 6765,
+          "meshes": 12,
+          "materials": 5,
+          "size": [
+            0.6,
+            1.25,
+            0.32
+          ],
+          "animations": []
+        },
+        {
+          "id": "bow_hunter",
+          "title": "Лук охотника",
+          "file": "weapons/bow_hunter.glb",
+          "bytes": 114780,
+          "triangles": 1868,
+          "vertices": 4138,
+          "meshes": 12,
+          "materials": 8,
+          "size": [
+            0.08,
+            1.26,
+            0.69
+          ],
+          "animations": []
+        },
+        {
+          "id": "crossbow",
+          "title": "Арбалет",
+          "file": "weapons/crossbow.glb",
+          "bytes": 136804,
+          "triangles": 2208,
+          "vertices": 5030,
+          "meshes": 13,
+          "materials": 8,
+          "size": [
+            0.73,
+            0.79,
+            0.21
+          ],
+          "animations": []
+        },
+        {
+          "id": "staff_magic",
+          "title": "Магический посох",
+          "file": "weapons/staff_magic.glb",
+          "bytes": 63788,
+          "triangles": 2232,
+          "vertices": 1506,
+          "meshes": 15,
+          "materials": 4,
+          "size": [
+            0.4,
+            1.65,
+            0.34
+          ],
+          "animations": []
+        }
+      ]
+    },
+    {
+      "id": "enemies",
+      "title": "Враги (слизни)",
+      "models": [
+        {
+          "id": "slime_green",
+          "title": "Зелёный слизень",
+          "file": "enemies/slime_green.glb",
+          "bytes": 109600,
+          "triangles": 4280,
+          "vertices": 2742,
+          "meshes": 17,
+          "materials": 6,
+          "size": [
+            0.98,
+            0.79,
+            0.91
+          ],
+          "animations": [
+            "Idle",
+            "Hop"
+          ]
+        },
+        {
+          "id": "slime_blue",
+          "title": "Синий слизень",
+          "file": "enemies/slime_blue.glb",
+          "bytes": 160032,
+          "triangles": 4676,
+          "vertices": 4534,
+          "meshes": 26,
+          "materials": 5,
+          "size": [
+            0.98,
+            1.01,
+            0.91
+          ],
+          "animations": [
+            "Idle",
+            "Hop"
+          ]
+        },
+        {
+          "id": "slime_red",
+          "title": "Красный слизень",
+          "file": "enemies/slime_red.glb",
+          "bytes": 172724,
+          "triangles": 5560,
+          "vertices": 4949,
+          "meshes": 23,
+          "materials": 7,
+          "size": [
+            0.98,
+            1.04,
+            0.91
+          ],
+          "animations": [
+            "Idle",
+            "Hop"
+          ]
+        },
+        {
+          "id": "slime_purple",
+          "title": "Фиолетовый слизень",
+          "file": "enemies/slime_purple.glb",
+          "bytes": 164368,
+          "triangles": 4826,
+          "vertices": 4637,
+          "meshes": 27,
+          "materials": 6,
+          "size": [
+            0.98,
+            0.79,
+            0.91
+          ],
+          "animations": [
+            "Idle",
+            "Hop"
+          ]
+        },
+        {
+          "id": "slime_stone",
+          "title": "Каменный слизень",
+          "file": "enemies/slime_stone.glb",
+          "bytes": 48388,
+          "triangles": 656,
+          "vertices": 1326,
+          "meshes": 15,
+          "materials": 5,
+          "size": [
+            0.91,
+            0.96,
+            0.85
+          ],
+          "animations": [
+            "Idle",
+            "Hop"
+          ]
+        },
+        {
+          "id": "slime_royal",
+          "title": "Королевский слизень",
+          "file": "enemies/slime_royal.glb",
+          "bytes": 198264,
+          "triangles": 6228,
+          "vertices": 5515,
+          "meshes": 32,
+          "materials": 7,
+          "size": [
+            1.14,
+            1.05,
+            0.99
+          ],
+          "animations": [
+            "Idle",
+            "Hop"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bosses",
+      "title": "Боссы",
+      "models": [
+        {
+          "id": "boss_slime_king",
+          "title": "Король слизней",
+          "file": "bosses/boss_slime_king.glb",
+          "bytes": 311528,
+          "triangles": 9606,
+          "vertices": 7882,
+          "meshes": 64,
+          "materials": 12,
+          "size": [
+            2.9,
+            2.75,
+            2.64
+          ],
+          "animations": [
+            "Idle"
+          ]
+        },
+        {
+          "id": "boss_dark_slime_king",
+          "title": "Тёмный король слизней",
+          "file": "bosses/boss_dark_slime_king.glb",
+          "bytes": 361088,
+          "triangles": 11014,
+          "vertices": 8938,
+          "meshes": 78,
+          "materials": 11,
+          "size": [
+            3.16,
+            3.11,
+            2.83
+          ],
+          "animations": [
+            "Idle"
+          ]
+        },
+        {
+          "id": "boss_slime_dragon",
+          "title": "Слизневый дракон",
+          "file": "bosses/boss_slime_dragon.glb",
+          "bytes": 284352,
+          "triangles": 7360,
+          "vertices": 8215,
+          "meshes": 52,
+          "materials": 8,
+          "size": [
+            3.85,
+            3.54,
+            4.17
+          ],
+          "animations": [
+            "Idle"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "chests",
+      "title": "Сундуки",
+      "models": [
+        {
+          "id": "chest_common",
+          "title": "Обычный сундук",
+          "file": "chests/chest_common.glb",
+          "bytes": 339168,
+          "triangles": 4848,
+          "vertices": 12859,
+          "meshes": 28,
+          "materials": 8,
+          "size": [
+            0.93,
+            0.67,
+            0.66
+          ],
+          "animations": [
+            "Open",
+            "Close"
+          ]
+        },
+        {
+          "id": "chest_rare",
+          "title": "Редкий сундук",
+          "file": "chests/chest_rare.glb",
+          "bytes": 286284,
+          "triangles": 4704,
+          "vertices": 10071,
+          "meshes": 36,
+          "materials": 8,
+          "size": [
+            1,
+            0.68,
+            0.66
+          ],
+          "animations": [
+            "Open",
+            "Close"
+          ]
+        },
+        {
+          "id": "chest_epic",
+          "title": "Эпический сундук",
+          "file": "chests/chest_epic.glb",
+          "bytes": 297336,
+          "triangles": 4896,
+          "vertices": 10293,
+          "meshes": 42,
+          "materials": 8,
+          "size": [
+            1,
+            0.68,
+            0.67
+          ],
+          "animations": [
+            "Open",
+            "Close"
+          ]
+        },
+        {
+          "id": "chest_legendary",
+          "title": "Легендарный сундук",
+          "file": "chests/chest_legendary.glb",
+          "bytes": 343672,
+          "triangles": 6122,
+          "vertices": 11378,
+          "meshes": 57,
+          "materials": 9,
+          "size": [
+            1.28,
+            0.87,
+            1.28
+          ],
+          "animations": [
+            "Open",
+            "Close"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "loot",
+      "title": "Добыча",
+      "models": [
+        {
+          "id": "loot_gold",
+          "title": "Золото",
+          "file": "loot/loot_gold.glb",
+          "bytes": 159684,
+          "triangles": 6776,
+          "vertices": 4048,
+          "meshes": 22,
+          "materials": 2,
+          "size": [
+            0.7,
+            0.3,
+            0.71
+          ],
+          "animations": [
+            "Idle"
+          ]
+        },
+        {
+          "id": "loot_crystal",
+          "title": "Кристаллы",
+          "file": "loot/loot_crystal.glb",
+          "bytes": 24768,
+          "triangles": 200,
+          "vertices": 600,
+          "meshes": 11,
+          "materials": 3,
+          "size": [
+            0.56,
+            0.51,
+            0.53
+          ],
+          "animations": [
+            "Idle"
+          ]
+        },
+        {
+          "id": "loot_potion",
+          "title": "Зелье",
+          "file": "loot/loot_potion.glb",
+          "bytes": 40092,
+          "triangles": 1528,
+          "vertices": 956,
+          "meshes": 7,
+          "materials": 5,
+          "size": [
+            0.28,
+            0.43,
+            0.28
+          ],
+          "animations": [
+            "Idle"
+          ]
+        },
+        {
+          "id": "loot_scroll",
+          "title": "Свитки",
+          "file": "loot/loot_scroll.glb",
+          "bytes": 95796,
+          "triangles": 1652,
+          "vertices": 3131,
+          "meshes": 17,
+          "materials": 5,
+          "size": [
+            0.48,
+            0.41,
+            0.08
+          ],
+          "animations": [
+            "Idle"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "props",
+      "title": "Дополнительные элементы",
+      "models": [
+        {
+          "id": "prop_campfire",
+          "title": "Костёр",
+          "file": "props/prop_campfire.glb",
+          "bytes": 106792,
+          "triangles": 2012,
+          "vertices": 2584,
+          "meshes": 32,
+          "materials": 9,
+          "size": [
+            1.24,
+            1.45,
+            1.27
+          ],
+          "animations": [
+            "Idle"
+          ]
+        },
+        {
+          "id": "prop_portal",
+          "title": "Портал",
+          "file": "props/prop_portal.glb",
+          "bytes": 493544,
+          "triangles": 8952,
+          "vertices": 18425,
+          "meshes": 30,
+          "materials": 7,
+          "size": [
+            2.44,
+            2.14,
+            2.44
+          ],
+          "animations": [
+            "Idle"
+          ]
+        },
+        {
+          "id": "prop_shop",
+          "title": "Магазин",
+          "file": "props/prop_shop.glb",
+          "bytes": 487140,
+          "triangles": 7268,
+          "vertices": 17462,
+          "meshes": 61,
+          "materials": 16,
+          "size": [
+            2.62,
+            2.3,
+            2.22
+          ],
+          "animations": []
+        },
+        {
+          "id": "prop_forge",
+          "title": "Кузница",
+          "file": "props/prop_forge.glb",
+          "bytes": 537344,
+          "triangles": 7432,
+          "vertices": 21215,
+          "meshes": 31,
+          "materials": 13,
+          "size": [
+            4.27,
+            2.55,
+            4.27
+          ],
+          "animations": []
+        },
+        {
+          "id": "prop_trap_spikes",
+          "title": "Ловушки",
+          "file": "props/prop_trap_spikes.glb",
+          "bytes": 149836,
+          "triangles": 1864,
+          "vertices": 3972,
+          "meshes": 51,
+          "materials": 6,
+          "size": [
+            1.3,
+            0.52,
+            1.3
+          ],
+          "animations": [
+            "Activate",
+            "Retract"
+          ]
+        },
+        {
+          "id": "prop_key",
+          "title": "Ключ",
+          "file": "props/prop_key.glb",
+          "bytes": 115956,
+          "triangles": 2720,
+          "vertices": 3892,
+          "meshes": 12,
+          "materials": 3,
+          "size": [
+            0.42,
+            0.9,
+            0.13
+          ],
+          "animations": [
+            "Idle"
+          ]
+        },
+        {
+          "id": "prop_anvil",
+          "title": "Наковальня (крафт)",
+          "file": "props/prop_anvil.glb",
+          "bytes": 94104,
+          "triangles": 1248,
+          "vertices": 3683,
+          "meshes": 6,
+          "materials": 4,
+          "size": [
+            0.9,
+            0.83,
+            0.6
+          ],
+          "animations": []
+        },
+        {
+          "id": "prop_trophy",
+          "title": "Кубок (достижения)",
+          "file": "props/prop_trophy.glb",
+          "bytes": 81568,
+          "triangles": 2024,
+          "vertices": 2723,
+          "meshes": 8,
+          "materials": 4,
+          "size": [
+            0.76,
+            0.68,
+            0.42
+          ],
+          "animations": [
+            "Idle"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "locations",
+      "title": "Локации (карты)",
+      "models": [
+        {
+          "id": "loc_green_forest",
+          "title": "1. Зелёный лес",
+          "file": "locations/loc_green_forest.glb",
+          "bytes": 4041912,
+          "triangles": 37406,
+          "vertices": 112164,
+          "meshes": 3,
+          "materials": 2,
+          "size": [
+            36.34,
+            9.29,
+            36.47
+          ],
+          "animations": []
+        },
+        {
+          "id": "loc_ice_mountains",
+          "title": "2. Ледяные горы",
+          "file": "locations/loc_ice_mountains.glb",
+          "bytes": 1947892,
+          "triangles": 18226,
+          "vertices": 54608,
+          "meshes": 5,
+          "materials": 4,
+          "size": [
+            36.28,
+            14.49,
+            36.03
+          ],
+          "animations": []
+        },
+        {
+          "id": "loc_fire_valley",
+          "title": "3. Огненная долина",
+          "file": "locations/loc_fire_valley.glb",
+          "bytes": 1649948,
+          "triangles": 15840,
+          "vertices": 46105,
+          "meshes": 9,
+          "materials": 4,
+          "size": [
+            36,
+            11.98,
+            38
+          ],
+          "animations": []
+        },
+        {
+          "id": "loc_cursed_swamp",
+          "title": "4. Проклятое болото",
+          "file": "locations/loc_cursed_swamp.glb",
+          "bytes": 2152680,
+          "triangles": 20144,
+          "vertices": 60430,
+          "meshes": 6,
+          "materials": 5,
+          "size": [
+            36,
+            8.8,
+            36
+          ],
+          "animations": []
+        },
+        {
+          "id": "loc_slime_kingdom",
+          "title": "5. Королевство слизней",
+          "file": "locations/loc_slime_kingdom.glb",
+          "bytes": 1766312,
+          "triangles": 17006,
+          "vertices": 51016,
+          "meshes": 7,
+          "materials": 6,
+          "size": [
+            36,
+            13.49,
+            36
+          ],
+          "animations": []
+        }
+      ]
+    }
+  ]
+}

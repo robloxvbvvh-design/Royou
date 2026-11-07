@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Рыцари и Тайна Слизневого Королевства</title>
+<style>
+  :root {
+    --bg: #0f0c1d; --panel: #181330; --panel-2: #211a42; --line: #34295f;
+    --text: #ece8ff; --muted: #9c93c9; --accent: #f4b92e; --accent-ink: #1a1203;
+    --stage-top: #3a2d6b; --stage-bot: #120d26;
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f3f0fb; --panel: #ffffff; --panel-2: #ece7fa; --line: #d3caee;
+      --text: #1d1640; --muted: #6a608f; --accent: #b87a00; --accent-ink: #ffffff;
+      --stage-top: #d9d0f5; --stage-bot: #a79bd6;
+      color-scheme: light;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #f3f0fb; --panel: #ffffff; --panel-2: #ece7fa; --line: #d3caee;
+    --text: #1d1640; --muted: #6a608f; --accent: #b87a00; --accent-ink: #ffffff;
+    --stage-top: #d9d0f5; --stage-bot: #a79bd6;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { padding-left: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: grid; grid-template-columns: 280px 1fr; height: 100%; overflow: hidden;
+  }
+  aside {
+    background: var(--panel); border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  aside h1 { font-size: 16px; margin: 0; padding: 16px 16px 4px max(16px, env(safe-area-inset-left, 0px)); letter-spacing: .02em; text-wrap: balance; }
+  aside .sub { padding: 0 16px 12px max(16px, env(safe-area-inset-left, 0px)); color: var(--muted); font-size: 12px; }
+  #list { overflow-y: auto; padding: 0 8px 16px max(8px, env(safe-area-inset-left, 0px)); flex: 1; }
+  .cat { margin: 10px 4px 4px; display: flex; align-items: center; justify-content: space-between;
+    color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+  .cat button { all: unset; cursor: pointer; font-size: 11px; color: var(--accent); text-transform: none; letter-spacing: 0; }
+  .cat button:hover { text-decoration: underline; }
+  .item {
+    display: flex; justify-content: space-between; gap: 8px; width: 100%;
+    padding: 7px 10px; border-radius: 8px; border: 0; background: transparent; color: var(--text);
+    font: inherit; text-align: left; cursor: pointer;
+  }
+  .item:hover { background: var(--panel-2); }
+  .item:focus-visible, .chip:focus-visible, .cat button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .item[aria-current="true"] { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  .item small { opacity: .7; font-variant-numeric: tabular-nums; }
+  main { position: relative; min-width: 0; min-height: 0; }
+  #stage { position: absolute; inset: 0; background: linear-gradient(180deg, var(--stage-top), var(--stage-bot)); }
+  canvas { display: block; width: 100%; height: 100%; outline: none; }
+  .hud { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); top: 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; pointer-events: none; }
+  .hud > * { pointer-events: auto; }
+  .chip {
+    background: color-mix(in srgb, var(--panel) 88%, transparent); border: 1px solid var(--line);
+    border-radius: 999px; padding: 6px 12px; color: var(--text); font: inherit; backdrop-filter: blur(6px);
+  }
+  button.chip { cursor: pointer; }
+  button.chip:hover { border-color: var(--accent); }
+  button.chip[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  select.chip { padding-right: 8px; }
+  #title { font-weight: 700; font-size: 15px; }
+  #info { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); width: fit-content; max-width: calc(100% - 32px); bottom: 12px; color: var(--muted); font-size: 12px;
+    background: color-mix(in srgb, var(--panel) 80%, transparent); padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); }
+  #msg { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); pointer-events: none; }
+  body.shot { grid-template-columns: 1fr !important; grid-template-rows: 1fr !important; }
+  body.shot aside, body.shot .hud, body.shot #info { display: none; }
+  @media (max-width: 720px) {
+    body { grid-template-columns: 1fr; grid-template-rows: 46% 1fr; }
+    aside { border-right: 0; border-bottom: 1px solid var(--line); order: 2; }
+    aside h1, aside .sub { display: none; }
+    main { order: 1; }
+    .hud { top: 8px; left: 16px; right: 16px; }
+  }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<aside>
+  <h1>Рыцари и Тайна Слизневого Королевства</h1>
+  <div class="sub">3D-модели · glTF/GLB · перетаскивайте мышью, колесо — масштаб</div>
+  <div id="list" role="list"></div>
+</aside>
+<main>
+  <div id="stage"></div>
+  <div class="hud">
+    <span class="chip" id="title">—</span>
+    <select class="chip" id="anim" aria-label="Анимация" hidden></select>
+    <button class="chip" id="wire" aria-pressed="false">Каркас</button>
+    <button class="chip" id="spin" aria-pressed="true">Вращение</button>
+  </div>
+  <div id="info"></div>
+  <div id="msg">Загрузка…</div>
+</main>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const $ = (s) => document.querySelector(s);
+const q = new URLSearchParams(location.search);
+if (q.has('shot')) document.body.classList.add('shot');
+// Папка models лежит либо рядом со страницей (публикация), либо уровнем выше (репозиторий).
+const BASE = new URL(location.pathname.includes('/viewer') ? '../models/' : 'models/', location.href).href;
+
+// ─── сцена ───
+const stage = $('#stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: q.has('shot') });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.NeutralToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+stage.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.75;
+const sun = new THREE.DirectionalLight(0xffffff, 1.9);
+sun.position.set(4, 8, 5);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.bias = -0.0004;
+scene.add(sun, new THREE.HemisphereLight(0xbfb4ff, 0x2a1d45, 0.6));
+
+const floor = new THREE.Mesh(new THREE.CircleGeometry(1, 64), new THREE.ShadowMaterial({ opacity: 0.35 }));
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true;
+scene.add(floor);
+const grid = new THREE.GridHelper(20, 40, 0x6a5bb0, 0x3a2f68);
+grid.material.transparent = true; grid.material.opacity = 0.35;
+scene.add(grid);
+
+const camera = new THREE.PerspectiveCamera(35, 1, 0.05, 2000);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.autoRotate = true; controls.autoRotateSpeed = 1.6;
+controls.maxPolarAngle = Math.PI * 0.495;
+
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(stage); resize();
+
+// ─── данные ───
+const manifest = await (await fetch(BASE + 'manifest.json')).json();
+const loader = new GLTFLoader();
+const cache = new Map();
+// В публикации модели лежат как base64-текст (площадка не раздаёт .glb напрямую); в репозитории — обычные .glb.
+const ENCODED = false;
+async function fetchGLB(file) {
+  if (!ENCODED) return loader.loadAsync(BASE + file);
+  const txt = await (await fetch(BASE + file + '.txt')).text();
+  const bin = atob(txt.trim());
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return loader.parseAsync(bytes.buffer, BASE);
+}
+const loadGLB = (file) => {
+  if (!cache.has(file)) cache.set(file, fetchGLB(file));
+  return cache.get(file);
+};
+
+let current = null;   // { group, mixer, actions }
+let wire = false;
+const clock = new THREE.Clock();
+
+function clearCurrent() {
+  if (!current) return;
+  scene.remove(current.group);
+  current = null;
+}
+function setWire(on) {
+  wire = on; $('#wire').setAttribute('aria-pressed', on);
+  current?.group.traverse((o) => { if (o.isMesh) { [].concat(o.material).forEach((m) => { m.wireframe = on; }); } });
+}
+
+function frame(box, tight = 1) {
+  const size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
+  const r = Math.max(size.x, size.y * 1.1, size.z) * 0.5;
+  const fov = camera.fov * Math.PI / 180;
+  const aspect = camera.aspect;
+  const distV = (size.y * 0.6) / Math.tan(fov / 2);
+  const distH = (size.x * 0.55 * tight) / (Math.tan(fov / 2) * aspect);
+  const dist = Math.max(distV, distH, r * 0.9) * 1.15 + size.z * 0.4;
+  controls.target.set(c.x, c.y * 0.9, c.z);
+  camera.position.set(c.x + dist * 0.42, c.y + dist * 0.28 + size.y * 0.1, c.z + dist * 0.88);
+  camera.near = dist / 200; camera.far = dist * 40; camera.updateProjectionMatrix();
+  controls.update();
+  const R = Math.max(size.x, size.z) * 0.75 + 0.5;
+  floor.scale.setScalar(R); floor.position.y = box.min.y - 0.001;
+  grid.position.y = box.min.y; grid.scale.setScalar(Math.max(0.05, R / 10));
+  sun.position.set(c.x + R * 0.6, box.max.y + R, c.z + R * 0.8);
+  sun.target.position.set(c.x, c.y, c.z); sun.target.updateMatrixWorld();
+  const s = R * 1.2;
+  Object.assign(sun.shadow.camera, { left: -s, right: s, top: s, bottom: -s, near: 0.1, far: R * 4 + size.y * 3 });
+  sun.shadow.camera.updateProjectionMatrix();
+}
+
+function describe(m) {
+  const anims = m.animations?.length ? ` · анимации: ${m.animations.join(', ')}` : '';
+  return `${m.triangles.toLocaleString('ru')} треугольников · ${m.size.join(' × ')} м · ${(m.bytes / 1024).toFixed(0)} КБ · ${m.file}${anims}`;
+}
+
+async function show(cat, m) {
+  $('#msg').style.display = 'grid'; $('#msg').textContent = 'Загрузка…';
+  const gltf = await loadGLB(m.file);
+  clearCurrent();
+  const group = gltf.scene.clone(true);
+  // чистим клон: у SkinnedMesh не используем, поэтому обычного clone достаточно
+  scene.add(group);
+  const mixer = gltf.animations.length ? new THREE.AnimationMixer(group) : null;
+  const actions = {};
+  gltf.animations.forEach((a) => { actions[a.name] = mixer.clipAction(a); });
+  current = { group, mixer, actions, active: null };
+  const sel = $('#anim');
+  sel.innerHTML = '';
+  if (mixer) {
+    ['(без анимации)', ...Object.keys(actions)].forEach((n) => sel.add(new Option(n === '(без анимации)' ? n : '▶ ' + n, n)));
+    sel.hidden = false;
+    const first = actions.Idle ? 'Idle' : '(без анимации)';
+    sel.value = first; play(first);
+  } else sel.hidden = true;
+  setWire(wire);
+  frame(new THREE.Box3().setFromObject(group));
+  $('#title').textContent = m.title;
+  $('#info').textContent = describe(m);
+  $('#msg').style.display = 'none';
+  document.querySelectorAll('.item').forEach((b) => b.setAttribute('aria-current', b.dataset.id === m.id));
+  history.replaceState(null, '', `?model=${m.id}`);
+}
+
+function play(name) {
+  if (!current?.mixer) return;
+  Object.values(current.actions).forEach((a) => a.stop());
+  if (actions_ok(name)) { const a = current.actions[name]; a.reset().play(); current.active = a; }
+}
+const actions_ok = (n) => current && current.actions[n];
+$('#anim').onchange = (e) => play(e.target.value);
+
+async function showCategory(cat) {
+  $('#msg').style.display = 'grid'; $('#msg').textContent = 'Загрузка…';
+  clearCurrent();
+  const group = new THREE.Group();
+  const mixers = [];
+  const gltfs = await Promise.all(cat.models.map((m) => loadGLB(m.file)));
+  let x = 0;
+  const boxes = [];
+  gltfs.forEach((g, i) => {
+    const obj = g.scene.clone(true);
+    const b = new THREE.Box3().setFromObject(obj);
+    const sz = b.getSize(new THREE.Vector3());
+    const w = Math.max(sz.x, sz.z);
+    x += w / 2 + (i ? 0.25 * Math.max(0.4, w) : 0);
+    obj.position.x = x - (b.min.x + b.max.x) / 2 * 0; obj.position.x = x;
+    group.add(obj);
+    x += w / 2;
+    if (g.animations.length) {
+      const mx = new THREE.AnimationMixer(obj);
+      const a = g.animations.find((c) => c.name === 'Idle') || g.animations[0];
+      mx.clipAction(a).play(); mixers.push(mx);
+    }
+  });
+  group.position.x = -x / 2;
+  scene.add(group);
+  current = { group, mixer: { update: (dt) => mixers.forEach((m) => m.update(dt)) }, actions: {} };
+  $('#anim').hidden = true;
+  setWire(wire);
+  const box = new THREE.Box3().setFromObject(group);
+  frame(box, 1.0);
+  $('#title').textContent = `${cat.title} — все`;
+  $('#info').textContent = `${cat.models.length} моделей`;
+  $('#msg').style.display = 'none';
+  document.querySelectorAll('.item').forEach((b) => b.setAttribute('aria-current', 'false'));
+  history.replaceState(null, '', `?cat=${cat.id}`);
+}
+
+// ─── список ───
+const list = $('#list');
+for (const cat of manifest.categories) {
+  const h = document.createElement('div'); h.className = 'cat';
+  h.innerHTML = `<span>${cat.title}</span>`;
+  const all = document.createElement('button'); all.textContent = 'все вместе';
+  all.onclick = () => showCategory(cat);
+  h.appendChild(all); list.appendChild(h);
+  for (const m of cat.models) {
+    const b = document.createElement('button'); b.className = 'item'; b.dataset.id = m.id;
+    b.innerHTML = `<span>${m.title}</span><small>${m.triangles >= 1000 ? (m.triangles / 1000).toFixed(1) + 'k' : m.triangles}</small>`;
+    b.onclick = () => show(cat, m);
+    list.appendChild(b);
+  }
+}
+
+$('#wire').onclick = () => setWire(!wire);
+$('#spin').onclick = () => { controls.autoRotate = !controls.autoRotate; $('#spin').setAttribute('aria-pressed', controls.autoRotate); };
+if (q.has('shot')) { controls.autoRotate = false; $('#spin').setAttribute('aria-pressed', 'false'); }
+
+// ─── старт ───
+const all = manifest.categories.flatMap((c) => c.models.map((m) => [c, m]));
+if (q.get('cat')) {
+  const c = manifest.categories.find((c) => c.id === q.get('cat'));
+  if (c) await showCategory(c);
+} else {
+  const [c, m] = all.find(([, m]) => m.id === q.get('model')) || all[0];
+  if (c) await show(c, m);
+}
+
+// для автотестов: ручная установка угла камеры
+window.__setView = (az, el = 0.25, k = 1) => {
+  const t = controls.target, d = camera.position.distanceTo(t) * k;
+  camera.position.set(t.x + Math.sin(az) * Math.cos(el) * d, t.y + Math.sin(el) * d, t.z + Math.cos(az) * Math.cos(el) * d);
+  controls.update(); renderer.render(scene, camera);
+};
+window.__pose = (name, t) => {
+  play(name);
+  const a = current?.active; if (!a) return false;
+  a.paused = true; a.time = t; current.mixer.update(0); return true;
+};
+window.__ready = true;
+
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  current?.mixer?.update(dt);
+  controls.update();
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>
