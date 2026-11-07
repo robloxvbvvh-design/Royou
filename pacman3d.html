@@ -146,7 +146,7 @@
     <button class="play" id="btnPlay">ИГРАТЬ</button>
     <div class="keys">
       <div><kbd>СТРЕЛКИ</kbd> / <kbd>WASD</kbd><br>движение</div>
-      <div><kbd>C</kbd><br>камера: 3D · сверху · за спиной</div>
+      <div><kbd>C</kbd><br>камера: 3D / сверху</div>
       <div><kbd>P</kbd> пауза · <kbd>M</kbd> звук<br><kbd>F</kbd> во весь экран</div>
     </div>
   </div>
@@ -738,12 +738,12 @@ function levelParams(L) {
   const k = Math.min(L - 1, 6);
   return {
     pac: 6.4 + k * 0.2,
-    ghost: 5.7 + k * 0.2,
-    fright: 3.5 + k * 0.1,
+    ghost: 5.3 + k * 0.2,
+    fright: 3.2 + k * 0.1,
     tunnel: 3.1 + k * 0.1,
-    frightTime: Math.max(1.4, 7 - 0.9 * (L - 1)),
+    frightTime: Math.max(2, 8 - 0.9 * (L - 1)),
     elroy1: [20, 30, 40, 40, 40, 50, 50, 50][Math.min(L - 1, 7)],
-    release: L === 1 ? [0, 25, 50] : L === 2 ? [0, 0, 35] : [0, 0, 0]
+    release: L === 1 ? [0, 30, 60] : L === 2 ? [0, 0, 50] : [0, 0, 0]
   };
 }
 function modeSchedule(L) {
@@ -902,6 +902,16 @@ function ghostTarget(g) {
     default: return Math.hypot(g.c - p.c, g.r - p.r) > 8 ? { x: p.c, y: p.r } : g.def.scatter;
   }
 }
+// Штраф за выбор тайла рядом с другим призраком — чтобы они расходились, а не бегали толпой
+function crowd(g, nc, nr) {
+  let p = 0;
+  for (const o of ghosts) {
+    if (o === g || o.state !== 'active') continue;
+    const t = nearestTile(o), d = Math.hypot(nc - t.c, nr - t.r);
+    if (d < 5) p += (5 - d) * (5 - d) * 14;
+  }
+  return p;
+}
 function ghostDecide(g) {
   if (g.state === 'leaving') return;
   if (g.state === 'eaten' && hd(g.c, g.r) === 0) {                 // добрался до дома
@@ -917,8 +927,8 @@ function ghostDecide(g) {
     if (!passable(nc, nr, eaten)) continue;
     let s;
     if (eaten) s = hd(nc, nr);
-    else if (g.frightened) s = Math.random();
-    else s = (nc - target.x) * (nc - target.x) + (nr - target.y) * (nr - target.y);
+    else if (g.frightened) s = Math.random() + crowd(g, nc, nr);
+    else s = (nc - target.x) * (nc - target.x) + (nr - target.y) * (nr - target.y) + crowd(g, nc, nr);
     if (s < bs) { bs = s; best = d; }
   }
   if (!best && moving && passable(g.c - g.dx, g.r - g.dy, eaten)) best = { x: -g.dx, y: -g.dy };
@@ -985,6 +995,7 @@ function checkCollisions() {
     if (g.state === 'house' || g.state === 'eaten') continue;
     if (Math.hypot(g.x - pac.x, g.y - pac.y) > 0.62) continue;
     if (g.frightened) { eatGhost(g); return; }
+    if (window.__pacman && window.__pacman.god) continue;           // отладка: бессмертие
     killPac(); return;
   }
   if (fruitMesh && Math.hypot(pac.x - 13.5, pac.y - 17) < 0.8) {
@@ -1080,11 +1091,11 @@ function togglePause() {
 /* =====================================================================
    КАМЕРА
    ===================================================================== */
-const CAM_MODES = ['view', 'top', 'chase'];
-const CAM_NAMES = { view: '3D', top: 'СВЕРХУ', chase: 'ЗА СПИНОЙ' };
+const CAM_MODES = ['view', 'top'];
+const CAM_NAMES = { view: '3D', top: 'СВЕРХУ' };
 let camMode = 'view';
 const camPos = new THREE.Vector3(0, 40, 30), camLook = new THREE.Vector3(), tmpP = new THREE.Vector3(), tmpL = new THREE.Vector3();
-let camFov = 48, fogOn = 0, viewFit = { view: 40, top: 40 }, shakeT = 0;
+let viewFit = { view: 40, top: 40 }, shakeT = 0;
 
 function fitCamera() {
   const w = window.innerWidth, h = window.innerHeight, a = w / h;
@@ -1106,31 +1117,20 @@ function cycleCam() { setCamMode(CAM_MODES[(CAM_MODES.indexOf(camMode) + 1) % CA
 function updateCamera(dt) {
   if (window.__pacman && window.__pacman.freeCam) return;
   const k = 1 - Math.exp(-dt * 4.5);
-  let fovT = 48, fog = 0;
-  const px = wx(pac.x), pz = wz(pac.y);
-  if (phase === 'menu' && elOverlay && !elOverlay.classList.contains('hidden')) {
+  if (phase === 'menu' && !elOverlay.classList.contains('hidden')) {   // меню: медленный облёт лабиринта
     const a = time * 0.16, d = viewFit.view * 0.98;
     tmpP.set(Math.sin(a) * d * 0.62, d * 0.78, Math.cos(a) * d * 0.62 + 2);
     tmpL.set(0, 0, 0.5);
-  } else if (camMode === 'view') {
+  } else if (camMode === 'view') {                                      // фиксированный наклонный вид на весь лабиринт
     const e = THREE.MathUtils.degToRad(58), d = viewFit.view;
-    tmpL.set(px * 0.12, 0, pz * 0.12 + 0.7);
-    tmpP.set(tmpL.x, Math.sin(e) * d, tmpL.z + Math.cos(e) * d);
-  } else if (camMode === 'top') {
+    tmpL.set(0, 0, 0.7);
+    tmpP.set(0, Math.sin(e) * d, tmpL.z + Math.cos(e) * d);
+  } else {                                                              // вид строго сверху, как в аркаде
     const e = THREE.MathUtils.degToRad(84), d = viewFit.top;
     tmpL.set(0, 0, 0.3);
     tmpP.set(0, Math.sin(e) * d, tmpL.z + Math.cos(e) * d);
-  } else {
-    const fx = Math.cos(pac.angle), fz = -Math.sin(pac.angle);
-    tmpP.set(px - fx * 4.6, 3.1, pz - fz * 4.6);
-    tmpL.set(px + fx * 3.2, 0.2, pz + fz * 3.2);
-    fovT = 62; fog = 1;
   }
-  const kp = camMode === 'chase' && phase !== 'menu' ? 1 - Math.exp(-dt * 7) : k;
-  camPos.lerp(tmpP, kp); camLook.lerp(tmpL, kp);
-  camFov += (fovT - camFov) * k; fogOn += (fog - fogOn) * k;
-  camera.fov = camFov; camera.updateProjectionMatrix();
-  scene.fog.near = lerp(400, 12, fogOn); scene.fog.far = lerp(800, 34, fogOn);
+  camPos.lerp(tmpP, k); camLook.lerp(tmpL, k);
   camera.position.copy(camPos);
   if (shakeT > 0) { shakeT -= dt; camera.position.x += (Math.random() - .5) * shakeT * 0.6; camera.position.y += (Math.random() - .5) * shakeT * 0.6; }
   camera.lookAt(camLook);
@@ -1244,12 +1244,7 @@ function animate(dt) {
 const DIRMAP = { up: UP, down: DOWN, left: LEFT, right: RIGHT };
 function steer(name) {
   if (phase === 'menu' || phase === 'gameover') return;
-  let d = DIRMAP[name];
-  if (camMode === 'chase') {                       // от первого лица: поворот относительно курса
-    const f = pac.face;
-    d = name === 'up' ? f : name === 'down' ? { x: -f.x, y: -f.y } : name === 'left' ? { x: f.y, y: -f.x } : { x: -f.y, y: f.x };
-  }
-  pac.want = d;
+  pac.want = DIRMAP[name];                         // как в оригинале: стрелка = направление на экране
 }
 const KEYS = {
   ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right'
@@ -1323,7 +1318,7 @@ window.__pacman = {
   },
   step(sec) { const n = Math.round(sec * 60); for (let i = 0; i < n; i++) { update(1 / 60); animate(1 / 60); } },
   steer, newGame, setCamMode, pac, ghosts, eat, dotInfo, startFright, MAP, dotCount: () => dotList.length + powerList.length,
-  setLevel(n) { level = n; params = levelParams(n); }, camera, renderer, scene, freeCam: false
+  setLevel(n) { level = n; params = levelParams(n); }, camera, renderer, scene, freeCam: false, god: false
 };
 })();
 </script>
