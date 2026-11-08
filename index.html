@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Зип-Раннер</title>
+<style>
+  html,body{margin:0;height:100%;background:#000;overflow:hidden;touch-action:none;
+    -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+  .btn{position:fixed;bottom:max(18px,env(safe-area-inset-bottom));width:84px;height:84px;border-radius:50%;
+    background:rgba(255,255,255,.22);border:3px solid rgba(255,255,255,.55);color:#fff;font-weight:700;
+    font-size:15px;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.1;
+    touch-action:none;backdrop-filter:blur(2px)}
+  .btn.on{background:rgba(255,200,40,.6)}
+  #left{left:max(18px,env(safe-area-inset-left));font-size:34px}
+  #right{left:calc(max(18px,env(safe-area-inset-left)) + 100px);font-size:34px}
+  #jump{right:max(18px,env(safe-area-inset-right));width:96px;height:96px;background:rgba(255,80,60,.35)}
+  #spin{right:calc(max(18px,env(safe-area-inset-right)) + 112px);background:rgba(60,160,255,.35)}
+  #rotate{position:fixed;inset:0;background:#102040;color:#fff;display:none;align-items:center;
+    justify-content:center;text-align:center;font-size:22px;padding:30px;z-index:10}
+  @media (orientation:portrait){#rotate{display:flex}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="btn" id="left">◀</div>
+<div class="btn" id="right">▶</div>
+<div class="btn" id="spin">СПИН</div>
+<div class="btn" id="jump">ПРЫЖОК</div>
+<div id="rotate">📱 Поверните телефон горизонтально</div>
+
+<script>
+(() => {
+'use strict';
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const VH = 270;                 // логическая высота экрана
+let VW = 480, scale = 1;
+function resize(){
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const W = innerWidth, H = innerHeight;
+  cv.width = W * dpr; cv.height = H * dpr;
+  scale = (H * dpr) / VH;
+  VW = (W * dpr) / scale;
+}
+addEventListener('resize', resize); resize();
+
+/* ---------- звук ---------- */
+let ac = null;
+function beep(f, d = .08, type = 'square', vol = .05, slide = 0){
+  try{
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type; o.frequency.value = f;
+    if (slide) o.frequency.linearRampToValueAtTime(f + slide, ac.currentTime + d);
+    g.gain.value = vol; g.gain.linearRampToValueAtTime(0, ac.currentTime + d);
+    o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime + d);
+  }catch(e){}
+}
+
+/* ---------- управление ---------- */
+const keys = {left:0, right:0, jump:0, spin:0};
+function bind(id, k){
+  const el = document.getElementById(id);
+  const on = e => { e.preventDefault(); keys[k] = 1; el.classList.add('on'); try{ el.setPointerCapture(e.pointerId); }catch(_){} if (ac && ac.state==='suspended') ac.resume(); };
+  const off = e => { e.preventDefault(); keys[k] = 0; el.classList.remove('on'); };
+  el.addEventListener('pointerdown', on);
+  el.addEventListener('pointerup', off);
+  el.addEventListener('pointercancel', off);
+  el.addEventListener('lostpointercapture', off);
+  el.addEventListener('contextmenu', e => e.preventDefault());
+}
+bind('left','left'); bind('right','right'); bind('jump','jump'); bind('spin','spin');
+const keyMap = {ArrowLeft:'left',a:'left',ArrowRight:'right',d:'right',' ':'jump',ArrowUp:'jump',w:'jump',ArrowDown:'spin',s:'spin',Shift:'spin'};
+addEventListener('keydown', e => { const k = keyMap[e.key]; if (k){ keys[k]=1; e.preventDefault(); } if (state!=='play') startIfIdle(); });
+addEventListener('keyup', e => { const k = keyMap[e.key]; if (k) keys[k]=0; });
+cv.addEventListener('pointerdown', () => { if (ac && ac.state==='suspended') ac.resume(); startIfIdle(); });
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('touchmove', e => e.preventDefault(), {passive:false});
+
+/* ---------- уровень ---------- */
+const T = 32, N = 230, PIT = 9999;
+const pits = [[40,43],[72,75],[104,108],[138,141],[168,172],[196,199]];
+const H = [];
+function baseH(i){
+  const k = Math.max(0, Math.min(1, i/14)) * Math.max(0, Math.min(1, (N-i)/14));
+  return 175 + k * (42*Math.sin(i*0.21) + 24*Math.sin(i*0.083+1));
+}
+for (let i = 0; i <= N; i++){
+  let h = baseH(i);
+  for (const p of pits) if (i >= p[0] && i <= p[1]) h = PIT;
+  H.push(h);
+}
+function gy(x){
+  if (x < 0) return H[0];
+  const i = Math.floor(x/T);
+  if (i >= N) return H[N];
+  const a = H[i], b = H[i+1];
+  if (a >= PIT || b >= PIT) return PIT;
+  return a + (b-a) * ((x - i*T)/T);
+}
+function slopeAt(x){
+  const a = gy(x-4), b = gy(x+4);
+  if (a>=PIT || b>=PIT) return 0;
+  return Math.atan2(b-a, 8);
+}
+const GOAL_X = (N-8) * T;
+
+let rings, enemies, springs, particles, flyRings;
+function buildEntities(){
+  rings = []; enemies = []; springs = []; particles = []; flyRings = [];
+  for (let i = 10; i < N-12; i += 6){
+    const inPit = pits.some(p => i >= p[0]-2 && i <= p[1]+1);
+    if (inPit) continue;
+    for (let j = 0; j < 5; j++){
+      const x = i*T + j*22;
+      rings.push({x, y: gy(x) - 34 - (j===2?8:0), got:false});
+    }
+  }
+  for (const p of pits){   // дуги колец над пропастями
+    const x0 = (p[0]-1)*T, x1 = (p[1]+2)*T, n = 7;
+    for (let j = 0; j < n; j++){
+      const t = j/(n-1), x = x0 + (x1-x0)*t;
+      rings.push({x, y: baseH(Math.round(x/T)) - 50 - Math.sin(t*Math.PI)*40, got:false});
+    }
+  }
+  for (let i = 22; i < N-20; i += 11){
+    if (pits.some(p => i >= p[0]-4 && i <= p[1]+4)) continue;
+    const x = i*T + 10;
+    enemies.push({x, x0:x-60, x1:x+60, dir:1, alive:true, t:0});
+  }
+  for (const c of [30, 58, 92, 124, 156, 186]){
+    const x = c*T; springs.push({x, squash:0});
+  }
+}
+
+/* ---------- игрок ---------- */
+const P = {};
+let state = 'title', lives = 3, score = 0, ringCount = 0, timeT = 0, camX = 0, camY = 0, tick = 0;
+function resetPlayer(){
+  Object.assign(P, {x:60, y:gy(60), vx:0, vy:0, gsp:0, ground:true, ball:false, dir:1,
+    charge:0, inv:0, dead:false, anim:0, jumpHeld:false, ang:0});
+  camX = 0; camY = 0;
+}
+function newGame(){ lives = 3; score = 0; ringCount = 0; timeT = 0; buildEntities(); resetPlayer(); state = 'play'; }
+function startIfIdle(){
+  if (state === 'title' || state === 'over' || state === 'win'){ newGame(); }
+}
+buildEntities(); resetPlayer();
+
+function hurt(from){
+  if (P.inv > 0 || P.dead) return;
+  if (ringCount > 0){
+    const n = Math.min(ringCount, 12);
+    for (let i = 0; i < n; i++){
+      const a = (i/n)*Math.PI*2;
+      flyRings.push({x:P.x, y:P.y-14, vx:Math.cos(a)*3, vy:Math.sin(a)*3-2, life:90});
+    }
+    ringCount = 0; P.inv = 120; P.ground = false; P.ball = false;
+    P.vy = -4; P.vx = (P.x < from ? -1 : 1) * 2.5; P.gsp = 0;
+    beep(200, .25, 'sawtooth', .06, -120);
+  } else die();
+}
+function die(){
+  if (P.dead) return;
+  P.dead = true; P.vy = -8; P.vx = 0; P.ground = false; P.deadT = 0;
+  beep(300, .5, 'sawtooth', .06, -250);
+}
+
+function burst(x, y, col){
+  for (let i = 0; i < 8; i++)
+    particles.push({x, y, vx:(Math.random()-.5)*4, vy:-Math.random()*3-1, life:30, col});
+}
+
+/* ---------- физика ---------- */
+const ACC = .13, DEC = .55, FRC = .13, TOP = 6.2, GRAV = .32, JUMP = 6.9;
+function update(){
+  tick++;
+  if (state !== 'play') { particles.forEach(p=>p.life--); return; }
+  timeT += 1/60;
+
+  if (P.dead){
+    P.vy += GRAV; P.y += P.vy; P.deadT++;
+    if (P.deadT > 90){ lives--; if (lives <= 0) state = 'over'; else { ringCount = 0; resetPlayer(); } }
+    return;
+  }
+  const inp = (keys.right?1:0) - (keys.left?1:0);
+  if (P.inv > 0) P.inv--;
+
+  if (P.ground){
+    const a = slopeAt(P.x); P.ang = a;
+    // спин-дэш: удерживай СПИН стоя, отпусти — рывок
+    if (keys.spin && Math.abs(P.gsp) < 1.2){
+      P.charge = Math.min(40, P.charge + 1); P.ball = true; P.gsp *= .9;
+      if (inp) P.dir = inp;
+      if (tick%4===0) beep(200 + P.charge*8, .05, 'triangle', .03);
+    } else if (P.charge > 0){
+      P.gsp = P.dir * (7 + P.charge*0.25); P.charge = 0; P.ball = true;
+      beep(500, .2, 'sawtooth', .05, 400);
+    } else if (keys.spin && Math.abs(P.gsp) >= 1.2){
+      P.ball = true;
+    } else if (P.ball && Math.abs(P.gsp) < .6 && !keys.spin){
+      P.ball = false;
+    } else if (!keys.spin && P.ball && Math.abs(P.gsp) >= .6 && !P.rollKeep){
+      // в шаре продолжаем катиться, пока не замедлимся
+    }
+
+    if (P.ball){
+      P.gsp += Math.sin(a) * .22;
+      P.gsp -= Math.sign(P.gsp) * Math.min(Math.abs(P.gsp), .025);
+      if (inp && Math.sign(P.gsp) !== inp) P.gsp += inp * .1;
+    } else {
+      if (inp){
+        P.dir = inp;
+        if (Math.sign(P.gsp) === -inp && P.gsp !== 0) P.gsp += inp * DEC;
+        else if (Math.abs(P.gsp) < TOP) P.gsp += inp * ACC;
+      } else {
+        P.gsp -= Math.sign(P.gsp) * Math.min(Math.abs(P.gsp), FRC);
+      }
+      P.gsp += Math.sin(a) * .13;
+    }
+    P.gsp = Math.max(-14, Math.min(14, P.gsp));
+    if (Math.abs(P.gsp) > .1) P.dir = Math.sign(P.gsp);
+
+    // прыжок
+    if (keys.jump && !P.jumpHeld && P.charge === 0){
+      P.ground = false; P.ball = true;
+      P.vx = P.gsp * Math.cos(a) + Math.sin(a) * JUMP;
+      P.vy = P.gsp * Math.sin(a) - Math.cos(a) * JUMP;
+      beep(420, .15, 'square', .05, 260);
+    } else {
+      const nx = P.x + P.gsp * Math.cos(a), ng = gy(nx);
+      if (nx < 8){ P.x = 8; P.gsp = 0; }
+      else if (ng >= PIT){ P.ground = false; P.vx = P.gsp; P.vy = 0; P.x = nx; }
+      else if (ng - P.y > 12 + Math.abs(P.gsp)){ P.ground = false; P.vx = P.gsp*Math.cos(a); P.vy = P.gsp*Math.sin(a); P.x = nx; }
+      else if (P.y - ng > 14){ P.gsp = 0; }
+      else { P.x = nx; P.y = ng; }
+    }
+    P.anim += Math.abs(P.gsp) * .06;
+  } else {
+    // воздух
+    if (inp){ P.dir = inp; if (Math.abs(P.vx) < TOP || Math.sign(P.vx) !== inp) P.vx += inp * .16; }
+    else P.vx *= .995;
+    if (!keys.jump && P.vy < -3 && P.ball && P.jumpHeld === false) { /* уже отпущен */ }
+    if (!keys.jump && P.vy < -3) P.vy = -3;
+    P.vy += GRAV; if (P.vy > 9) P.vy = 9;
+    const nx = P.x + P.vx;
+    if (nx < 8){ P.x = 8; P.vx = 0; }
+    else if (gy(nx) < P.y - 10 && gy(nx) < PIT){ P.vx = 0; }   // стена
+    else P.x = nx;
+    P.y += P.vy;
+    const g = gy(P.x);
+    if (g < PIT && P.y >= g && P.vy >= 0){
+      P.y = g; P.ground = true; const a = slopeAt(P.x);
+      P.gsp = P.vx * Math.cos(a) + P.vy * Math.sin(a) * .5;
+      P.ball = keys.spin && Math.abs(P.gsp) > 1;
+    }
+    P.anim += .15;
+    if (P.y > 420) die();
+  }
+  P.jumpHeld = !!keys.jump;
+
+  // кольца
+  for (const r of rings){
+    if (!r.got && Math.abs(r.x-P.x) < 16 && Math.abs(r.y-(P.y-14)) < 20){
+      r.got = true; ringCount++; score += 10; beep(1200 + (ringCount%5)*60, .09, 'sine', .06);
+      burst(r.x, r.y, '#ffd23a');
+    }
+  }
+  for (const f of flyRings){
+    f.vy += .2; f.x += f.vx; f.y += f.vy; f.life--;
+    const g = gy(f.x); if (g < PIT && f.y > g-6){ f.y = g-6; f.vy *= -.7; }
+    if (f.life < 70 && Math.abs(f.x-P.x) < 16 && Math.abs(f.y-(P.y-14)) < 20 && P.inv < 100){
+      f.life = 0; ringCount++; beep(1300, .05, 'sine', .04);
+    }
+  }
+  flyRings = flyRings.filter(f => f.life > 0);
+
+  // пружины
+  for (const s of springs){
+    if (s.squash > 0) s.squash--;
+    if (Math.abs(s.x-P.x) < 18 && Math.abs((gy(s.x)) - P.y) < 14 && (P.vy >= 0 || P.ground)){
+      P.ground = false; P.ball = true; P.vy = -12; P.vx = P.ground ? P.gsp : (P.vx||P.gsp);
+      s.squash = 12; beep(300, .25, 'square', .06, 500);
+    }
+  }
+  // враги
+  for (const e of enemies){
+    if (!e.alive) continue;
+    e.t++; e.x += e.dir * .7;
+    if (e.x > e.x1 || e.x < e.x0 || gy(e.x+e.dir*10) >= PIT) e.dir *= -1;
+    const ey = gy(e.x);
+    if (Math.abs(e.x-P.x) < 20 && Math.abs((ey-10)-(P.y-14)) < 24){
+      if (P.ball || (!P.ground && P.vy > 0)){
+        e.alive = false; score += 100; burst(e.x, ey-10, '#ff5a3c'); beep(700, .15, 'sawtooth', .05, -400);
+        if (!P.ground) P.vy = -5;
+      } else hurt(e.x);
+    }
+  }
+  // финиш
+  if (P.x > GOAL_X){ state = 'win'; score += ringCount*10 + Math.max(0, Math.floor(300 - timeT))*5; beep(880, .6, 'sine', .07); }
+
+  // частицы
+  for (const p of particles){ p.x+=p.vx; p.y+=p.vy; p.vy+=.15; p.life--; }
+  particles = particles.filter(p => p.life > 0);
+  if (P.ground && Math.abs(P.gsp) > 8 && tick%3===0)
+    particles.push({x:P.x - P.dir*8, y:P.y-2, vx:-P.dir*.6, vy:-.4, life:14, col:'#fff'});
+
+  // камера
+  const tx = P.x - VW*0.38 + P.gsp*10 * (P.ground?1:0.6);
+  camX += (tx - camX) * .12;
+  camX = Math.max(0, Math.min(N*T - VW, camX));
+  const ty = P.y - VH*0.62;
+  camY += (ty - camY) * .1;
+  camY = Math.max(-40, Math.min(140, camY));
+}
+
+/* ---------- отрисовка ---------- */
+function drawBG(){
+  const g = ctx.createLinearGradient(0,0,0,VH);
+  g.addColorStop(0,'#3b8cf0'); g.addColorStop(.7,'#9ad8ff'); g.addColorStop(1,'#d5f3ff');
+  ctx.fillStyle = g; ctx.fillRect(0,0,VW,VH);
+  // солнце
+  ctx.fillStyle = 'rgba(255,255,200,.9)'; ctx.beginPath(); ctx.arc(VW-70, 50, 22, 0, 7); ctx.fill();
+  // облака
+  ctx.fillStyle = 'rgba(255,255,255,.85)';
+  for (let i = 0; i < 7; i++){
+    const x = ((i*190 - camX*.15) % (VW+260) + VW+260) % (VW+260) - 130, y = 28 + (i*37)%70;
+    ctx.beginPath(); ctx.arc(x,y,16,0,7); ctx.arc(x+18,y+3,13,0,7); ctx.arc(x-17,y+4,11,0,7); ctx.arc(x+4,y-8,13,0,7); ctx.fill();
+  }
+  // дальние холмы
+  ctx.fillStyle = '#5fbf86';
+  ctx.beginPath(); ctx.moveTo(0,VH);
+  for (let x = 0; x <= VW+8; x += 8){
+    const wx = x + camX*.3;
+    ctx.lineTo(x, 175 - camY*.3 + Math.sin(wx*.012)*26 + Math.sin(wx*.031)*10);
+  }
+  ctx.lineTo(VW,VH); ctx.fill();
+  ctx.fillStyle = '#3f9e6a';
+  ctx.beginPath(); ctx.moveTo(0,VH);
+  for (let x = 0; x <= VW+8; x += 8){
+    const wx = x + camX*.55;
+    ctx.lineTo(x, 205 - camY*.5 + Math.sin(wx*.02+2)*20 + Math.sin(wx*.05)*6);
+  }
+  ctx.lineTo(VW,VH); ctx.fill();
+}
+function drawGround(){
+  const x0 = Math.floor(camX/4)*4, x1 = camX + VW + 8;
+  // земля
+  let drawing = false;
+  ctx.fillStyle = '#7a4a24';
+  for (let x = x0; x <= x1; x += 4){
+    const g = gy(x), g2 = gy(x+4);
+    if (g >= PIT || g2 >= PIT) continue;
+    ctx.fillRect(x - camX, g - camY, 4.5, 500);
+  }
+  // шахматный узор
+  ctx.fillStyle = 'rgba(0,0,0,.12)';
+  for (let x = Math.floor(x0/T)*T; x <= x1; x += T){
+    const k = Math.floor(x/T);
+    if (k % 2) continue;
+    const g = gy(x+T/2); if (g >= PIT) continue;
+    for (let y = g + 18; y < g + 300; y += 36)
+      ctx.fillRect(x - camX, y - camY + ((k%4)?0:18) , T, 18);
+  }
+  // трава
+  ctx.fillStyle = '#3fcf4a';
+  for (let x = x0; x <= x1; x += 4){
+    const g = gy(x), g2 = gy(x+4);
+    if (g >= PIT || g2 >= PIT) continue;
+    ctx.fillRect(x - camX, g - camY, 4.5, 9);
+  }
+  ctx.fillStyle = '#7ef08a';
+  for (let x = x0; x <= x1; x += 4){
+    const g = gy(x), g2 = gy(x+4);
+    if (g >= PIT || g2 >= PIT) continue;
+    ctx.fillRect(x - camX, g - camY, 4.5, 3);
+  }
+}
+function drawRing(x, y, t){
+  const w = Math.abs(Math.cos(t))*7 + 1.5;
+  ctx.strokeStyle = '#ffc61a'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.ellipse(x, y, w, 8, 0, 0, 7); ctx.stroke();
+  ctx.strokeStyle = '#fff6b0'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.ellipse(x, y, w, 8, 0, 3.6, 5); ctx.stroke();
+}
+function drawEnemy(e){
+  const x = e.x - camX, y = gy(e.x) - camY;
+  ctx.save(); ctx.translate(x, y);
+  ctx.fillStyle = '#d63a2a'; ctx.beginPath(); ctx.arc(0,-10,11,Math.PI,0); ctx.rect(-11,-10,22,6); ctx.fill();
+  ctx.fillStyle = '#222';
+  const l = Math.sin(e.t*.3)*3;
+  ctx.fillRect(-9+l,-4,5,5); ctx.fillRect(4-l,-4,5,5);
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(e.dir*4,-11,4,0,7); ctx.fill();
+  ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(e.dir*5,-11,2,0,7); ctx.fill();
+  ctx.fillStyle = '#ffd23a'; for (let i=-1;i<=1;i++){ ctx.beginPath(); ctx.moveTo(i*7-3,-18); ctx.lineTo(i*7,-25); ctx.lineTo(i*7+3,-18); ctx.fill(); }
+  ctx.restore();
+}
+function drawSpring(s){
+  const x = s.x - camX, y = gy(s.x) - camY, h = s.squash>0 ? 6 : 14;
+  ctx.fillStyle = '#888'; ctx.fillRect(x-10, y-4, 20, 4);
+  ctx.strokeStyle = '#bbb'; ctx.lineWidth = 3;
+  ctx.beginPath(); for (let i=0;i<4;i++){ ctx.moveTo(x-8, y-4-i*h/4); ctx.lineTo(x+8, y-4-(i+.5)*h/4);} ctx.stroke();
+  ctx.fillStyle = '#ffd23a'; ctx.fillRect(x-12, y-4-h-3, 24, 5);
+}
+function drawGoal(){
+  const x = GOAL_X - camX, y = gy(GOAL_X) - camY;
+  ctx.fillStyle = '#555'; ctx.fillRect(x-2, y-70, 4, 70);
+  ctx.save(); ctx.translate(x, y-70);
+  ctx.fillStyle = '#e83a5a'; ctx.beginPath(); ctx.moveTo(2,0); ctx.lineTo(36,10+Math.sin(tick*.1)*2); ctx.lineTo(2,22); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif'; ctx.fillText('ФИНИШ', -22, -6);
+  ctx.restore();
+}
+function drawPlayer(){
+  if (P.inv > 0 && Math.floor(P.inv/4)%2 && !P.dead) return;
+  const x = P.x - camX, y = P.y - camY;
+  ctx.save(); ctx.translate(x, y);
+  if (P.ground && !P.ball) ctx.rotate(P.ang * .8);
+  ctx.scale(P.dir, 1);
+  const fast = Math.abs(P.gsp) > 9;
+  if (P.ball){
+    ctx.translate(0,-13); ctx.rotate(P.anim*1.6 * 1);
+    ctx.fillStyle = '#ff8a1f';
+    for (let i = 0; i < 7; i++){ // иглы
+      ctx.save(); ctx.rotate(i*Math.PI*2/7);
+      ctx.beginPath(); ctx.moveTo(-5,-9); ctx.lineTo(0,-19); ctx.lineTo(5,-9); ctx.fill(); ctx.restore();
+    }
+    ctx.beginPath(); ctx.arc(0,0,12,0,7); ctx.fill();
+    ctx.fillStyle = '#ffc27a'; ctx.beginPath(); ctx.arc(2,2,7,0,7); ctx.fill();
+    if (P.charge > 0){ ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0,0,16+P.charge/4,0,7); ctx.stroke(); }
+  } else {
+    const run = Math.abs(P.gsp) > .3, ph = P.anim*3;
+    const lg = run ? Math.sin(ph)*7 : 0;
+    // иглы сзади
+    ctx.fillStyle = '#e8700a';
+    for (let i = 0; i < 3; i++){
+      ctx.beginPath(); ctx.moveTo(-6,-26+i*6); ctx.lineTo(-20 - (fast?8:0),-22+i*7 + (fast?3:0)); ctx.lineTo(-5,-20+i*6); ctx.fill();
+    }
+    // ноги
+    ctx.strokeStyle = '#ffc27a'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-2,-9); ctx.lineTo(-2+lg,-3); ctx.moveTo(3,-9); ctx.lineTo(3-lg,-3); ctx.stroke();
+    ctx.fillStyle = '#d8231f';
+    ctx.beginPath(); ctx.ellipse(-1+lg,-2,6,3.5,0,0,7); ctx.ellipse(4-lg,-2,6,3.5,0,0,7); ctx.fill();
+    // тело
+    ctx.fillStyle = '#ff8a1f'; ctx.beginPath(); ctx.ellipse(0,-17,10,11,0,0,7); ctx.fill();
+    ctx.fillStyle = '#ffc27a'; ctx.beginPath(); ctx.ellipse(3,-14,6,7,0,0,7); ctx.fill();
+    // голова
+    ctx.fillStyle = '#ff8a1f'; ctx.beginPath(); ctx.arc(2,-27,9,0,7); ctx.fill();
+    ctx.fillStyle = '#ffc27a'; ctx.beginPath(); ctx.ellipse(6,-25,5,4,0,0,7); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(4,-29,4,4.5,0,0,7); ctx.fill();
+    ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(5.5,-29,2,0,7); ctx.fill();
+    ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(10,-26,1.8,0,7); ctx.fill();
+    // ушко
+    ctx.fillStyle = '#e8700a'; ctx.beginPath(); ctx.moveTo(-3,-33); ctx.lineTo(-3,-41); ctx.lineTo(3,-34); ctx.fill();
+    // рука
+    ctx.strokeStyle = '#ffc27a'; ctx.lineWidth = 3.5;
+    ctx.beginPath(); ctx.moveTo(1,-18); ctx.lineTo(5+Math.sin(ph+2)*(run?5:0),-12); ctx.stroke();
+  }
+  ctx.restore();
+}
+function drawHUD(){
+  ctx.font = 'bold 14px sans-serif'; ctx.textBaseline = 'top';
+  const txt = (s, x, y, c='#fff') => { ctx.fillStyle = '#000'; ctx.fillText(s, x+1, y+1); ctx.fillStyle = c; ctx.fillText(s, x, y); };
+  txt('ОЧКИ ' + score, 12, 8, '#ffd23a');
+  txt('ВРЕМЯ ' + Math.floor(timeT/60) + ':' + String(Math.floor(timeT%60)).padStart(2,'0'), 12, 26);
+  txt('КОЛЬЦА ' + ringCount, 12, 44, ringCount ? '#fff' : '#ff6a5a');
+  txt('♥ x' + lives, VW - 62, 8, '#ff8a9a');
+  // прогресс
+  const w = 110, px = VW/2 - w/2;
+  ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(px, 10, w, 6);
+  ctx.fillStyle = '#ffd23a'; ctx.fillRect(px, 10, w * Math.min(1, P.x/GOAL_X), 6);
+}
+function center(lines, sub){
+  ctx.fillStyle = 'rgba(0,10,40,.6)'; ctx.fillRect(0,0,VW,VH);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = 'bold 40px sans-serif'; ctx.fillStyle = '#000'; ctx.fillText(lines[0], VW/2+2, VH*.3+2);
+  ctx.fillStyle = '#ffb02e'; ctx.fillText(lines[0], VW/2, VH*.3);
+  ctx.font = 'bold 18px sans-serif'; ctx.fillStyle = '#fff';
+  for (let i = 1; i < lines.length; i++) ctx.fillText(lines[i], VW/2, VH*.3 + 34 + (i-1)*24);
+  ctx.font = '15px sans-serif'; ctx.fillStyle = '#cfe8ff';
+  const blink = Math.floor(tick/30)%2;
+  if (blink) ctx.fillText(sub, VW/2, VH*.86);
+  ctx.textAlign = 'left';
+}
+function draw(){
+  ctx.setTransform(scale,0,0,scale,0,0);
+  drawBG();
+  drawGround();
+  springs.forEach(drawSpring);
+  drawGoal();
+  rings.forEach(r => { if (!r.got && r.x > camX-20 && r.x < camX+VW+20) drawRing(r.x-camX, r.y-camY, tick*.12 + r.x*.05); });
+  flyRings.forEach(f => drawRing(f.x-camX, f.y-camY, tick*.3));
+  enemies.forEach(e => { if (e.alive && e.x > camX-40 && e.x < camX+VW+40) drawEnemy(e); });
+  drawPlayer();
+  particles.forEach(p => { ctx.fillStyle = p.col; ctx.globalAlpha = Math.max(0, p.life/20); ctx.fillRect(p.x-camX-2, p.y-camY-2, 4, 4); });
+  ctx.globalAlpha = 1;
+  drawHUD();
+  if (state === 'title') center(['ЗИП-РАННЕР','Беги, собирай кольца, прыгай на врагов!','◀ ▶ бег  •  ПРЫЖОК  •  СПИН: удерживай и отпусти — рывок'], 'Нажми, чтобы начать');
+  else if (state === 'over') center(['ИГРА ОКОНЧЕНА','Очки: ' + score], 'Нажми, чтобы начать заново');
+  else if (state === 'win') center(['УРОВЕНЬ ПРОЙДЕН!','Очки: ' + score, 'Кольца: ' + ringCount], 'Нажми, чтобы сыграть ещё раз');
+}
+
+/* ---------- цикл (фиксированный шаг 60 Гц) ---------- */
+let last = performance.now(), acc = 0;
+function loop(now){
+  acc += Math.min(100, now - last); last = now;
+  while (acc >= 1000/60){ update(); acc -= 1000/60; }
+  draw();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+window.__game = {P, keys, get state(){return state;}, get ringCount(){return ringCount;}, newGame};
+})();
+</script>
+</body>
+</html>
