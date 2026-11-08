@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Копирка — лист моделей</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0b0f1c; color: #e8ecf8; font: 15px/1.35 "Segoe UI", system-ui, sans-serif; padding: 20px 20px 40px; }
+  h1 { margin: 0 0 4px; font-size: 30px; letter-spacing: .5px; }
+  .sub { color: #8fa0c8; margin-bottom: 18px; }
+  section { background: #121a2e; border: 1px solid #25314f; border-radius: 14px; padding: 14px 16px 16px; margin-bottom: 16px; }
+  h2 { margin: 0 0 10px; font-size: 19px; color: #fff; }
+  .grid { display: flex; flex-wrap: wrap; gap: 12px; }
+  .card { background: #0e1426; border: 1px solid #222d4a; border-radius: 12px; padding: 8px; text-align: center; }
+  .card img, .card canvas { display: block; border-radius: 8px; background: #1a2238; }
+  .card b { display: block; margin-top: 6px; font-size: 14px; }
+  .card small { color: #8fa0c8; }
+  .pair { display: flex; gap: 6px; }
+</style>
+</head>
+<body>
+<h1>КОПИРКА — лист моделей</h1>
+<div class="sub">Все модели сгенерированы кодом из блоков (src/models/*.js). Это тот же код, который строит игру.</div>
+<div id="out"></div>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+<script type="module" src="./src/sheet.js"></script>
+</body>
+</html>
