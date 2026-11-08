@@ -20,6 +20,13 @@
   #right{left:calc(max(18px,env(safe-area-inset-left)) + 100px);font-size:34px}
   #jump{right:max(18px,env(safe-area-inset-right));width:96px;height:96px;background:rgba(255,80,60,.35)}
   #spin{right:calc(max(18px,env(safe-area-inset-right)) + 112px);background:rgba(60,160,255,.35)}
+  #skwrap{position:fixed;left:50%;bottom:8px;transform:translateX(-50%);display:none;z-index:5;text-align:center;color:#fff}
+  #skrow{display:flex;gap:8px;justify-content:center}
+  .sk{width:48px;font-size:10px;font-weight:700;text-shadow:0 1px 2px #000}
+  .sk i{display:block;width:34px;height:34px;border-radius:50%;margin:0 auto 1px;border:3px solid rgba(255,255,255,.5);font-style:normal;line-height:30px;font-size:15px}
+  .sk.sel i{border-color:#ffd23a;box-shadow:0 0 8px #ffd23a}
+  .sk.lock i{filter:grayscale(1) brightness(.5)}
+  #skhint{font-size:11px;min-height:14px;text-shadow:0 1px 2px #000}
   #rotate{position:fixed;inset:0;background:#102040;color:#fff;display:none;align-items:center;
     justify-content:center;text-align:center;font-size:22px;padding:30px;z-index:10}
   @media (orientation:portrait){#rotate{display:flex}}
@@ -31,6 +38,7 @@
 <div class="btn" id="right">▶</div>
 <div class="btn" id="spin">СПИН</div>
 <div class="btn" id="jump">ПРЫЖОК</div>
+<div id="skwrap"><div id="skrow"></div><div id="skhint"></div></div>
 <div id="rotate">📱 Поверните телефон горизонтально</div>
 
 <script>
@@ -86,7 +94,7 @@ const T = 32, N = 230, PIT = 9999;
 const pits = [[40,43],[72,75],[104,108],[138,141],[168,172],[196,199]];
 const H = [];
 function baseH(i){
-  const k = Math.max(0, Math.min(1, i/14)) * Math.max(0, Math.min(1, (N-i)/14));
+  const k = Math.max(0, Math.min(1, i/14)) * Math.max(0, Math.min(1, (N-i)/14)) * Math.max(0, Math.min(1, (N-24-i)/8));
   return 175 + k * (42*Math.sin(i*0.21) + 24*Math.sin(i*0.083+1));
 }
 for (let i = 0; i <= N; i++){
@@ -107,12 +115,12 @@ function slopeAt(x){
   if (a>=PIT || b>=PIT) return 0;
   return Math.atan2(b-a, 8);
 }
-const GOAL_X = (N-8) * T;
+const ARENA_L = (N-23) * T, ARENA_R = (N-1) * T, GOAL_X = ARENA_L;
 
 let rings, enemies, springs, particles, flyRings;
 function buildEntities(){
   rings = []; enemies = []; springs = []; particles = []; flyRings = [];
-  for (let i = 10; i < N-12; i += 6){
+  for (let i = 10; i < N-28; i += 6){
     const inPit = pits.some(p => i >= p[0]-2 && i <= p[1]+1);
     if (inPit) continue;
     for (let j = 0; j < 5; j++){
@@ -127,7 +135,7 @@ function buildEntities(){
       rings.push({x, y: baseH(Math.round(x/T)) - 50 - Math.sin(t*Math.PI)*40, got:false});
     }
   }
-  for (let i = 22; i < N-20; i += 11){
+  for (let i = 22; i < N-32; i += 11){
     if (pits.some(p => i >= p[0]-4 && i <= p[1]+4)) continue;
     const x = i*T + 10;
     enemies.push({x, x0:x-60, x1:x+60, dir:1, alive:true, t:0});
@@ -139,13 +147,14 @@ function buildEntities(){
 
 /* ---------- игрок ---------- */
 const P = {};
+let bossActive = false, checkpoint = 60, boss = null, bombs = [], noLoss = true, newUnlocks = [];
 let state = 'title', lives = 3, score = 0, ringCount = 0, timeT = 0, camX = 0, camY = 0, tick = 0;
 function resetPlayer(){
-  Object.assign(P, {x:60, y:gy(60), vx:0, vy:0, gsp:0, ground:true, ball:false, dir:1,
+  Object.assign(P, {x:checkpoint, y:gy(checkpoint), vx:0, vy:0, gsp:0, ground:true, ball:false, dir:1,
     charge:0, inv:0, dead:false, anim:0, jumpHeld:false, ang:0});
-  camX = 0; camY = 0;
+  camX = Math.max(0, checkpoint-100); camY = 0; bossActive = false; makeBoss();
 }
-function newGame(){ lives = 3; score = 0; ringCount = 0; timeT = 0; buildEntities(); resetPlayer(); state = 'play'; }
+function newGame(){ checkpoint = 60; noLoss = true; newUnlocks = []; lives = 3; score = 0; ringCount = 0; timeT = 0; buildEntities(); resetPlayer(); state = 'play'; }
 function startIfIdle(){
   if (state === 'title' || state === 'over' || state === 'win'){ newGame(); }
 }
@@ -166,7 +175,7 @@ function hurt(from){
 }
 function die(){
   if (P.dead) return;
-  P.dead = true; P.vy = -8; P.vx = 0; P.ground = false; P.deadT = 0;
+  noLoss = false; P.dead = true; P.vy = -8; P.vx = 0; P.ground = false; P.deadT = 0;
   beep(300, .5, 'sawtooth', .06, -250);
 }
 
@@ -262,6 +271,13 @@ function update(){
     if (P.y > 420) die();
   }
   P.jumpHeld = !!keys.jump;
+  if (!bossActive && P.x > ARENA_L + 40){ bossActive = true; checkpoint = ARENA_L - 120; beep(120,.5,'sawtooth',.07,60); }
+  if (bossActive){
+    if (P.x < ARENA_L){ P.x = ARENA_L; if (P.gsp<0) P.gsp=0; if (P.vx<0) P.vx=0; }
+    if (P.x > ARENA_R){ P.x = ARENA_R; if (P.gsp>0) P.gsp=0; if (P.vx>0) P.vx=0; }
+    updateBoss();
+    if (state !== 'play') return;
+  }
 
   // кольца
   for (const r of rings){
@@ -300,8 +316,6 @@ function update(){
       } else hurt(e.x);
     }
   }
-  // финиш
-  if (P.x > GOAL_X){ state = 'win'; score += ringCount*10 + Math.max(0, Math.floor(300 - timeT))*5; beep(880, .6, 'sine', .07); }
 
   // частицы
   for (const p of particles){ p.x+=p.vx; p.y+=p.vy; p.vy+=.15; p.life--; }
@@ -310,13 +324,147 @@ function update(){
     particles.push({x:P.x - P.dir*8, y:P.y-2, vx:-P.dir*.6, vy:-.4, life:14, col:'#fff'});
 
   // камера
-  const tx = P.x - VW*0.38 + P.gsp*10 * (P.ground?1:0.6);
+  let tx = P.x - VW*0.38 + P.gsp*10 * (P.ground?1:0.6);
+  if (bossActive){ const lo = ARENA_L-20, hi = ARENA_R+20-VW; tx = hi>=lo ? Math.max(lo, Math.min(hi, P.x-VW/2)) : (lo+hi)/2; }
   camX += (tx - camX) * .12;
   camX = Math.max(0, Math.min(N*T - VW, camX));
   const ty = P.y - VH*0.62;
   camY += (ty - camY) * .1;
   camY = Math.max(-40, Math.min(140, camY));
 }
+
+
+/* ---------- босс ---------- */
+function makeBoss(){
+  boss = {x:(ARENA_L+ARENA_R)/2, y:80, hp:8, t:0, cd:240, bt:0, mode:'hover', mt:0, inv:0, dead:false};
+  bombs = [];
+}
+function updateBoss(){
+  const b = boss, cx = (ARENA_L+ARENA_R)/2, GR = 175;
+  b.t++; if (b.inv > 0) b.inv--;
+  if (b.dead){
+    b.y += 1.2; b.mt++;
+    if (b.mt%5===0) burst(b.x+(Math.random()-.5)*60, b.y+(Math.random()-.5)*50, '#ffb02e');
+    if (b.mt%12===0) beep(150+Math.random()*200, .2, 'sawtooth', .05, -100);
+    if (b.mt > 170){
+      state = 'win';
+      score += ringCount*10 + Math.max(0, Math.floor(300 - timeT))*5;
+      unlock('gold'); if (noLoss) unlock('night');
+      beep(880, .6, 'sine', .07);
+    }
+    return;
+  }
+  if (b.mode === 'hover'){
+    const tx = cx + Math.sin(b.t*.018)*(ARENA_R-ARENA_L)*.36;
+    b.x += (tx - b.x)*.05;
+    b.y += ((GR-100+Math.sin(b.t*.05)*10) - b.y)*.08;
+    if (++b.bt % 100 === 0) bombs.push({x:b.x, y:b.y+26, vx:(P.x-b.x)*.006, vy:0});
+    if (--b.cd <= 0){ b.mode = 'aim'; b.mt = 0; }
+  } else if (b.mode === 'aim'){
+    b.mt++; b.y += ((GR-140) - b.y)*.1; b.x += (P.x-b.x)*.04;
+    if (b.mt > 55){ b.mode = 'dive'; b.mt = 0; }
+  } else if (b.mode === 'dive'){
+    b.y += 8;
+    if (b.y >= GR-28){ b.y = GR-28; b.mode = 'rest'; b.mt = 0; burst(b.x, GR, '#ccc'); burst(b.x-20, GR, '#ccc'); beep(90, .3, 'sawtooth', .07, -30); }
+  } else if (b.mode === 'rest'){
+    if (++b.mt > 90) b.mode = 'rise';
+  } else if (b.mode === 'rise'){
+    b.y -= 3;
+    if (b.y <= GR-100){ b.mode = 'hover'; b.cd = 300; }
+  }
+  // контакт с игроком
+  const dx = P.x - b.x, dy = (P.y-14) - b.y;
+  if (!P.dead && b.inv === 0 && Math.hypot(dx, dy) < 40){
+    if (P.ball || (!P.ground && P.vy > 0 && dy < 0)){
+      b.hp--; b.inv = 70; score += 500;
+      P.ground = false; P.ball = true; P.vy = -6; P.vx = (dx >= 0 ? 1 : -1) * 3;
+      burst(b.x, b.y, '#fff'); beep(160, .25, 'square', .07, -60);
+      if (b.hp <= 0){ b.dead = true; b.mt = 0; bombs = []; score += 5000; }
+    } else hurt(b.x);
+  }
+  // бомбы
+  for (const m of bombs){
+    m.vy += .2; m.x += m.vx; m.y += m.vy;
+    const hitP = !P.dead && Math.hypot(P.x-m.x, (P.y-14)-m.y) < 22;
+    if (m.y >= GR-8 || hitP){
+      m.boom = true; burst(m.x, m.y, '#ff9a2a'); burst(m.x, m.y, '#555'); beep(110, .2, 'sawtooth', .06, -50);
+      if (!P.dead && Math.hypot(P.x-m.x, (P.y-14)-m.y) < 36) hurt(m.x);
+    }
+  }
+  bombs = bombs.filter(m => !m.boom);
+}
+function drawBoss(){
+  // стены арены
+  ctx.fillStyle = 'rgba(255,200,40,.5)';
+  for (const wx of [ARENA_L, ARENA_R]) for (let y = 0; y < 180; y += 14)
+    ctx.fillRect(wx - camX - 2, y - camY + (y%28?0:0), 4, 8);
+  if (!boss) return;
+  const b = boss, x = b.x - camX, y = b.y - camY;
+  if (b.inv > 0 && Math.floor(b.inv/4)%2 && !b.dead) { /* мигание */ }
+  else {
+    ctx.save(); ctx.translate(x, y);
+    // пропеллер
+    ctx.strokeStyle = '#444'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0,-28); ctx.lineTo(0,-36); ctx.stroke();
+    const w = Math.cos(tick*.6)*30;
+    ctx.fillStyle = '#666'; ctx.fillRect(-w/2, -39, w, 4);
+    // шипы снизу
+    ctx.fillStyle = '#c23a4a';
+    for (let i = -2; i <= 2; i++){ ctx.beginPath(); ctx.moveTo(i*11-6, 22); ctx.lineTo(i*11, 36); ctx.lineTo(i*11+6, 22); ctx.fill(); }
+    // корпус
+    const g = ctx.createRadialGradient(-8,-10,4,0,0,32);
+    g.addColorStop(0,'#c9cee0'); g.addColorStop(1,'#6a708c');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0,0,28,0,7); ctx.fill();
+    ctx.fillStyle = '#c23a4a'; ctx.fillRect(-28,6,56,7);
+    // глаз
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0,-6,12,0,7); ctx.fill();
+    const a = Math.atan2((P.y-14)-b.y, P.x-b.x);
+    ctx.fillStyle = b.mode==='aim' || b.mode==='dive' ? '#ff2020' : '#222';
+    ctx.beginPath(); ctx.arc(Math.cos(a)*5, -6+Math.sin(a)*5, 5, 0, 7); ctx.fill();
+    // брови
+    ctx.strokeStyle = '#222'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-14,-22); ctx.lineTo(0,-16); ctx.lineTo(14,-22); ctx.stroke();
+    ctx.restore();
+  }
+  for (const m of bombs){
+    const bx = m.x-camX, by = m.y-camY;
+    ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(bx,by,8,0,7); ctx.fill();
+    ctx.fillStyle = Math.floor(tick/4)%2 ? '#ff4030' : '#ffd23a'; ctx.beginPath(); ctx.arc(bx+3,by-9,3,0,7); ctx.fill();
+  }
+}
+
+/* ---------- скины ---------- */
+const SKINS = [
+  {id:'orange', n:'Зип',    b:'#ff8a1f', s:'#ffc27a', k:'#e8700a', sh:'#d8231f'},
+  {id:'lime',   n:'Лайм',   b:'#6fd23a', s:'#e6ffb0', k:'#3f9e1a', sh:'#ff8a1f'},
+  {id:'purple', n:'Фиалка', b:'#9a5cf0', s:'#ead7ff', k:'#6a30c0', sh:'#ffd23a'},
+  {id:'gold',   n:'Золото', b:'#ffd23a', s:'#fff3b0', k:'#d9a400', sh:'#7a3cff', hint:'Победи босса'},
+  {id:'night',  n:'Ночь',   b:'#3b3f6b', s:'#c9cff5', k:'#23264a', sh:'#ff3c6e', hint:'Победи босса, не потеряв ни одной жизни'}
+];
+let unlocked = ['orange','lime','purple'], skin = SKINS[0];
+try{
+  const u = JSON.parse(localStorage.getItem('zip_unlocked') || 'null');
+  if (Array.isArray(u)) unlocked = [...new Set([...unlocked, ...u])];
+  const f = SKINS.find(k => k.id === localStorage.getItem('zip_skin'));
+  if (f && unlocked.includes(f.id)) skin = f;
+}catch(e){}
+function saveSkins(){ try{ localStorage.setItem('zip_unlocked', JSON.stringify(unlocked)); localStorage.setItem('zip_skin', skin.id); }catch(e){} }
+function unlock(id){ if (!unlocked.includes(id)){ unlocked.push(id); newUnlocks.push(id); } saveSkins(); renderSkins(); }
+function renderSkins(){
+  const row = document.getElementById('skrow'), hint = document.getElementById('skhint');
+  row.innerHTML = '';
+  SKINS.forEach(k => {
+    const ok = unlocked.includes(k.id), d = document.createElement('div');
+    d.className = 'sk' + (k === skin ? ' sel' : '') + (ok ? '' : ' lock');
+    d.innerHTML = '<i style="background:linear-gradient(135deg,' + k.b + ' 55%,' + k.s + ' 55%)">' + (ok ? '' : '🔒') + '</i>' + k.n;
+    d.addEventListener('pointerdown', e => {
+      e.stopPropagation();
+      if (ok){ skin = k; saveSkins(); hint.textContent = ''; renderSkins(); }
+      else hint.textContent = '🔒 ' + k.hint;
+    });
+    row.appendChild(d);
+  });
+}
+renderSkins();
+let skShown = null;
 
 /* ---------- отрисовка ---------- */
 function drawBG(){
@@ -406,14 +554,6 @@ function drawSpring(s){
   ctx.beginPath(); for (let i=0;i<4;i++){ ctx.moveTo(x-8, y-4-i*h/4); ctx.lineTo(x+8, y-4-(i+.5)*h/4);} ctx.stroke();
   ctx.fillStyle = '#ffd23a'; ctx.fillRect(x-12, y-4-h-3, 24, 5);
 }
-function drawGoal(){
-  const x = GOAL_X - camX, y = gy(GOAL_X) - camY;
-  ctx.fillStyle = '#555'; ctx.fillRect(x-2, y-70, 4, 70);
-  ctx.save(); ctx.translate(x, y-70);
-  ctx.fillStyle = '#e83a5a'; ctx.beginPath(); ctx.moveTo(2,0); ctx.lineTo(36,10+Math.sin(tick*.1)*2); ctx.lineTo(2,22); ctx.fill();
-  ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif'; ctx.fillText('ФИНИШ', -22, -6);
-  ctx.restore();
-}
 function drawPlayer(){
   if (P.inv > 0 && Math.floor(P.inv/4)%2 && !P.dead) return;
   const x = P.x - camX, y = P.y - camY;
@@ -423,40 +563,40 @@ function drawPlayer(){
   const fast = Math.abs(P.gsp) > 9;
   if (P.ball){
     ctx.translate(0,-13); ctx.rotate(P.anim*1.6 * 1);
-    ctx.fillStyle = '#ff8a1f';
+    ctx.fillStyle = skin.b;
     for (let i = 0; i < 7; i++){ // иглы
       ctx.save(); ctx.rotate(i*Math.PI*2/7);
       ctx.beginPath(); ctx.moveTo(-5,-9); ctx.lineTo(0,-19); ctx.lineTo(5,-9); ctx.fill(); ctx.restore();
     }
     ctx.beginPath(); ctx.arc(0,0,12,0,7); ctx.fill();
-    ctx.fillStyle = '#ffc27a'; ctx.beginPath(); ctx.arc(2,2,7,0,7); ctx.fill();
+    ctx.fillStyle = skin.s; ctx.beginPath(); ctx.arc(2,2,7,0,7); ctx.fill();
     if (P.charge > 0){ ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0,0,16+P.charge/4,0,7); ctx.stroke(); }
   } else {
     const run = Math.abs(P.gsp) > .3, ph = P.anim*3;
     const lg = run ? Math.sin(ph)*7 : 0;
     // иглы сзади
-    ctx.fillStyle = '#e8700a';
+    ctx.fillStyle = skin.k;
     for (let i = 0; i < 3; i++){
       ctx.beginPath(); ctx.moveTo(-6,-26+i*6); ctx.lineTo(-20 - (fast?8:0),-22+i*7 + (fast?3:0)); ctx.lineTo(-5,-20+i*6); ctx.fill();
     }
     // ноги
-    ctx.strokeStyle = '#ffc27a'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.strokeStyle = skin.s; ctx.lineWidth = 4; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(-2,-9); ctx.lineTo(-2+lg,-3); ctx.moveTo(3,-9); ctx.lineTo(3-lg,-3); ctx.stroke();
-    ctx.fillStyle = '#d8231f';
+    ctx.fillStyle = skin.sh;
     ctx.beginPath(); ctx.ellipse(-1+lg,-2,6,3.5,0,0,7); ctx.ellipse(4-lg,-2,6,3.5,0,0,7); ctx.fill();
     // тело
-    ctx.fillStyle = '#ff8a1f'; ctx.beginPath(); ctx.ellipse(0,-17,10,11,0,0,7); ctx.fill();
-    ctx.fillStyle = '#ffc27a'; ctx.beginPath(); ctx.ellipse(3,-14,6,7,0,0,7); ctx.fill();
+    ctx.fillStyle = skin.b; ctx.beginPath(); ctx.ellipse(0,-17,10,11,0,0,7); ctx.fill();
+    ctx.fillStyle = skin.s; ctx.beginPath(); ctx.ellipse(3,-14,6,7,0,0,7); ctx.fill();
     // голова
-    ctx.fillStyle = '#ff8a1f'; ctx.beginPath(); ctx.arc(2,-27,9,0,7); ctx.fill();
-    ctx.fillStyle = '#ffc27a'; ctx.beginPath(); ctx.ellipse(6,-25,5,4,0,0,7); ctx.fill();
+    ctx.fillStyle = skin.b; ctx.beginPath(); ctx.arc(2,-27,9,0,7); ctx.fill();
+    ctx.fillStyle = skin.s; ctx.beginPath(); ctx.ellipse(6,-25,5,4,0,0,7); ctx.fill();
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(4,-29,4,4.5,0,0,7); ctx.fill();
     ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(5.5,-29,2,0,7); ctx.fill();
     ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(10,-26,1.8,0,7); ctx.fill();
     // ушко
-    ctx.fillStyle = '#e8700a'; ctx.beginPath(); ctx.moveTo(-3,-33); ctx.lineTo(-3,-41); ctx.lineTo(3,-34); ctx.fill();
+    ctx.fillStyle = skin.k; ctx.beginPath(); ctx.moveTo(-3,-33); ctx.lineTo(-3,-41); ctx.lineTo(3,-34); ctx.fill();
     // рука
-    ctx.strokeStyle = '#ffc27a'; ctx.lineWidth = 3.5;
+    ctx.strokeStyle = skin.s; ctx.lineWidth = 3.5;
     ctx.beginPath(); ctx.moveTo(1,-18); ctx.lineTo(5+Math.sin(ph+2)*(run?5:0),-12); ctx.stroke();
   }
   ctx.restore();
@@ -467,6 +607,12 @@ function drawHUD(){
   txt('ОЧКИ ' + score, 12, 8, '#ffd23a');
   txt('ВРЕМЯ ' + Math.floor(timeT/60) + ':' + String(Math.floor(timeT%60)).padStart(2,'0'), 12, 26);
   txt('КОЛЬЦА ' + ringCount, 12, 44, ringCount ? '#fff' : '#ff6a5a');
+  if (bossActive && boss && !boss.dead){
+    ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(VW/2-80, 22, 160, 9);
+    ctx.fillStyle = '#e8403a'; ctx.fillRect(VW/2-79, 23, 158*boss.hp/8, 7);
+    ctx.font = 'bold 10px sans-serif'; txt('БОСС', VW/2-14, 33);
+    ctx.font = 'bold 14px sans-serif';
+  }
   txt('♥ x' + lives, VW - 62, 8, '#ff8a9a');
   // прогресс
   const w = 110, px = VW/2 - w/2;
@@ -482,15 +628,17 @@ function center(lines, sub){
   for (let i = 1; i < lines.length; i++) ctx.fillText(lines[i], VW/2, VH*.3 + 34 + (i-1)*24);
   ctx.font = '15px sans-serif'; ctx.fillStyle = '#cfe8ff';
   const blink = Math.floor(tick/30)%2;
-  if (blink) ctx.fillText(sub, VW/2, VH*.86);
+  if (blink) ctx.fillText(sub, VW/2, VH*.76);
   ctx.textAlign = 'left';
 }
 function draw(){
+  const show = state !== 'play';
+  if (skShown !== show){ skShown = show; document.getElementById('skwrap').style.display = show ? 'block' : 'none'; }
   ctx.setTransform(scale,0,0,scale,0,0);
   drawBG();
   drawGround();
   springs.forEach(drawSpring);
-  drawGoal();
+  drawBoss();
   rings.forEach(r => { if (!r.got && r.x > camX-20 && r.x < camX+VW+20) drawRing(r.x-camX, r.y-camY, tick*.12 + r.x*.05); });
   flyRings.forEach(f => drawRing(f.x-camX, f.y-camY, tick*.3));
   enemies.forEach(e => { if (e.alive && e.x > camX-40 && e.x < camX+VW+40) drawEnemy(e); });
@@ -498,9 +646,9 @@ function draw(){
   particles.forEach(p => { ctx.fillStyle = p.col; ctx.globalAlpha = Math.max(0, p.life/20); ctx.fillRect(p.x-camX-2, p.y-camY-2, 4, 4); });
   ctx.globalAlpha = 1;
   drawHUD();
-  if (state === 'title') center(['ЗИП-РАННЕР','Беги, собирай кольца, прыгай на врагов!','◀ ▶ бег  •  ПРЫЖОК  •  СПИН: удерживай и отпусти — рывок'], 'Нажми, чтобы начать');
+  if (state === 'title') center(['ЗИП-РАННЕР','Беги, собирай кольца и победи босса!','◀ ▶ бег  •  ПРЫЖОК  •  СПИН: удерживай и отпусти — рывок'], 'Нажми, чтобы начать');
   else if (state === 'over') center(['ИГРА ОКОНЧЕНА','Очки: ' + score], 'Нажми, чтобы начать заново');
-  else if (state === 'win') center(['УРОВЕНЬ ПРОЙДЕН!','Очки: ' + score, 'Кольца: ' + ringCount], 'Нажми, чтобы сыграть ещё раз');
+  else if (state === 'win') center(['БОСС ПОБЕЖДЁН!','Очки: ' + score, 'Кольца: ' + ringCount].concat(newUnlocks.map(id => 'Открыт скин: ' + SKINS.find(k => k.id === id).n)), 'Нажми, чтобы сыграть ещё раз');
 }
 
 /* ---------- цикл (фиксированный шаг 60 Гц) ---------- */
@@ -512,7 +660,7 @@ function loop(now){
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
-window.__game = {P, keys, get state(){return state;}, get ringCount(){return ringCount;}, newGame};
+window.__game = {P, keys, get boss(){return boss;}, get state(){return state;}, get ringCount(){return ringCount;}, newGame};
 })();
 </script>
 </body>
