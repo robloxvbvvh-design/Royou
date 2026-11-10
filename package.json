@@ -1,0 +1,15 @@
+{
+  "name": "royou",
+  "version": "1.0.0",
+  "description": "Конструктор сайтов со входом по коду из письма",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "nodemailer": "^6.9.16"
+  }
+}

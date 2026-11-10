@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Royou — мои сайты</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body class="app-page">
+  <header class="topbar">
+    <div class="logo">Royou</div>
+    <div class="topbar-right">
+      <span id="user-email" class="muted"></span>
+      <button id="logout-btn" class="btn">Выйти</button>
+    </div>
+  </header>
+
+  <!-- Список сайтов -->
+  <main id="view-list" class="list-view">
+    <div class="list-head">
+      <h1>Мои сайты</h1>
+      <button id="new-btn" class="btn primary">Создать сайт</button>
+    </div>
+    <p id="empty" class="muted" hidden>У вас пока нет сайтов. Нажмите «Создать сайт», чтобы сделать первый.</p>
+    <ul id="sites" class="sites"></ul>
+  </main>
+
+  <!-- Редактор -->
+  <main id="view-editor" class="editor-view" hidden>
+    <div class="editor-bar">
+      <button id="back-btn" class="btn">← К списку</button>
+      <input id="site-name" class="name-input" maxlength="80" aria-label="Название сайта">
+      <span id="status" class="muted" role="status"></span>
+      <a id="open-link" class="btn" target="_blank" rel="noopener">Открыть сайт</a>
+      <button id="delete-btn" class="btn danger">Удалить</button>
+      <button id="save-btn" class="btn primary">Сохранить</button>
+    </div>
+    <div class="editor-body">
+      <div class="code-pane">
+        <div class="tabs" role="tablist">
+          <button class="tab active" data-field="html" role="tab">HTML</button>
+          <button class="tab" data-field="css" role="tab">CSS</button>
+          <button class="tab" data-field="js" role="tab">JS</button>
+        </div>
+        <textarea id="code-area" spellcheck="false" aria-label="Код сайта"></textarea>
+      </div>
+      <iframe id="preview" title="Предпросмотр сайта" sandbox="allow-scripts allow-forms allow-modals"></iframe>
+    </div>
+  </main>
+
+  <p id="error" class="error toast" role="alert" hidden></p>
+  <script src="/compose.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

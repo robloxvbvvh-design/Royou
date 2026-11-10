@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Royou — создавайте сайты</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body class="login-page">
+  <main class="card">
+    <div class="logo">Royou</div>
+
+    <section id="step-start">
+      <h1>Создавайте свои сайты</h1>
+      <p class="muted">Простой конструктор: пишите страницу и сразу смотрите результат. Вход по коду из письма, без пароля.</p>
+      <button id="start-btn" class="btn primary big">Начать</button>
+      <button id="token-link" class="btn link">У меня уже есть токен</button>
+    </section>
+
+    <section id="step-email" hidden>
+      <h1>Ваша почта</h1>
+      <p class="muted">Мы пришлём на неё код для входа.</p>
+      <form id="email-form">
+        <label for="email">Адрес почты</label>
+        <input id="email" type="email" autocomplete="email" placeholder="name@example.com" required>
+        <button class="btn primary" type="submit">Получить код</button>
+      </form>
+      <button class="btn link back">Назад</button>
+    </section>
+
+    <section id="step-code" hidden>
+      <h1>Введите код</h1>
+      <p class="muted">Мы отправили 6 цифр на <b id="email-shown"></b>. Код действует 10 минут.</p>
+      <p id="dev-note" class="note" hidden>Почта на сервере не настроена, поэтому письмо не отправлено. Код напечатан в консоли сервера.</p>
+      <form id="code-form">
+        <label for="code">Код из письма</label>
+        <input id="code" class="code-input" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="000000" required>
+        <button class="btn primary" type="submit">Подтвердить</button>
+      </form>
+      <button id="resend-btn" class="btn link">Отправить код ещё раз</button>
+      <button class="btn link back">Изменить почту</button>
+    </section>
+
+    <section id="step-token" hidden>
+      <h1>Ваш токен</h1>
+      <p class="muted">Почта подтверждена. Сохраните токен: с ним можно войти без письма. Никому его не показывайте.</p>
+      <div class="token-box">
+        <code id="token-value"></code>
+        <button id="copy-btn" class="btn">Скопировать</button>
+      </div>
+      <a class="btn primary big" href="/app">Перейти к созданию сайтов</a>
+    </section>
+
+    <section id="step-token-login" hidden>
+      <h1>Вход по токену</h1>
+      <p class="muted">Вставьте токен, который вы получили после подтверждения почты.</p>
+      <form id="token-form">
+        <label for="token-input">Токен</label>
+        <input id="token-input" autocomplete="off" spellcheck="false" required>
+        <button class="btn primary" type="submit">Войти</button>
+      </form>
+      <button class="btn link back">Назад</button>
+    </section>
+
+    <p id="error" class="error" role="alert" hidden></p>
+  </main>
+  <script src="/login.js"></script>
+</body>
+</html>
