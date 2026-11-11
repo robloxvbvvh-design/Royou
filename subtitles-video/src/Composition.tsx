@@ -13,7 +13,7 @@ import {
 import { captions } from "./captions";
 
 const FPS = 30;
-const DURATION = Math.ceil(44.6 * FPS);
+const DURATION = Math.ceil(48.6 * FPS);
 const S = (s: number) => Math.round(s * FPS);
 const FONT = "Arial, Helvetica, sans-serif";
 const MONO = "'DejaVu Sans Mono', 'Courier New', monospace";
@@ -30,11 +30,11 @@ const useSpring = (delay = 0, damping = 14) => {
 /* ---------------- Character ---------------- */
 
 const TYPING: [number, number][] = [
-  [7.3, 9.2],
-  [23.1, 25.0],
-  [31.4, 33.6],
-  [35.0, 36.1],
-  [41.5, 44.5],
+  [8.7, 10.6],
+  [27.2, 28.3],
+  [35.5, 37.4],
+  [38.96, 40.5],
+  [44.8, 47.8],
 ];
 
 const Character: React.FC = () => {
@@ -42,12 +42,12 @@ const Character: React.FC = () => {
   const t = frame / FPS;
   const typing = TYPING.some(([a, b]) => t >= a && t <= b);
   const speaking = captions.some((c) => t >= c.start && t <= c.end);
-  const waving = t < 3.5;
+  const waving = t < 4.5;
   const blink = frame % 90 > 84 ? 0.1 : 1;
   const mouth = speaking ? 4 + Math.abs(Math.sin(frame * 0.9)) * 14 : 3;
   const bob = Math.sin(frame / 14) * 5;
-  const tilt = t >= 11.3 && t <= 14.4 ? Math.sin(frame * 0.5) * 6 : 0; // shakes head "no"
-  const celebrate = t >= 36.1 && t <= 38.5;
+  const tilt = t >= 13.8 && t <= 17 ? Math.sin(frame * 0.5) * 6 : 0; // shakes head "no"
+  const celebrate = t >= 41.5 && t <= 44;
 
   const lh = typing ? Math.sin(frame * 1.2) * 14 : 0;
   const rh = typing ? Math.cos(frame * 1.2) * 14 : 0;
@@ -191,9 +191,9 @@ const Intro: React.FC = () => {
 
 const PhoneScene: React.FC = () => {
   const frame = useCurrentFrame();
-  const msg = typed("создать видео", frame, S(2.8), 7);
-  const sent = frame > S(5.0);
-  const reply = frame > S(5.6);
+  const msg = typed("создать видео", frame, S(3.6), 7);
+  const sent = frame > S(5.4);
+  const reply = frame > S(5.9);
   const slide = useSpring(0, 16);
   return (
     <div style={{ width: 520, height: 800, borderRadius: 64, background: "#0f172a", border: "10px solid #475569", padding: 30, boxSizing: "border-box", transform: `translateY(${interpolate(slide, [0, 1], [200, 0])}px)`, opacity: slide, position: "relative", boxShadow: "0 30px 80px rgba(0,0,0,0.5)" }}>
@@ -220,7 +220,7 @@ const HollywoodScene: React.FC = () => {
   const frame = useCurrentFrame();
   const p = useSpring(0, 14);
   const x = useSpring(S(1.0), 8);
-  const code = useSpring(S(2.6), 12);
+  const code = useSpring(S(3.2), 12);
   return (
     <div style={{ display: "flex", gap: 40, alignItems: "center", fontFamily: FONT, transform: `scale(${p})` }}>
       <div style={{ width: 400, height: 500, borderRadius: 36, background: "#1e293b", position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24 }}>
@@ -249,10 +249,10 @@ const HollywoodScene: React.FC = () => {
 
 const PluginScene: React.FC = () => {
   const frame = useCurrentFrame();
-  const prog = interpolate(frame, [S(0.3), S(2.0)], [0, 100], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const folder = useSpring(S(2.2), 10);
-  const plugins = [0, 1, 2].map((i) => useSpring(S(3.6) + i * 8, 8));
-  const showTyping = frame > S(5.2);
+  const prog = interpolate(frame, [S(1.5), S(3.0)], [0, 100], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const folder = useSpring(S(5.0), 10);
+  const plugins = [0, 1, 2].map((i) => useSpring(S(7.0) + i * 8, 8));
+  const showTyping = frame > S(7.9);
   return (
     <Panel title="Remotion">
       <FileCard name="remotion plugin" color="#6366f1" label="R" />
@@ -275,7 +275,7 @@ const PluginScene: React.FC = () => {
       </div>
       {showTyping && (
         <div style={{ position: "absolute", left: 36, right: 36, bottom: 30 }}>
-          <Bubble me mono text={typed("создать видео", frame, S(5.3), 9)} cursor />
+          <Bubble me mono text={typed("создать видео", frame, S(8.0), 9)} cursor />
         </div>
       )}
     </Panel>
@@ -285,8 +285,8 @@ const PluginScene: React.FC = () => {
 const ZipScene: React.FC = () => {
   const frame = useCurrentFrame();
   const zip = useSpring(0, 12);
-  const open = useSpring(S(1.8), 12);
-  const term = frame > S(5.0);
+  const open = useSpring(S(1.7), 12);
+  const term = frame > S(5.1);
   return (
     <Panel title={term ? "Терминал — my-video" : "Проводник"}>
       {!term ? (
@@ -302,7 +302,7 @@ const ZipScene: React.FC = () => {
           </div>
         </>
       ) : (
-        <TerminalContent frame={frame - S(5.0)} lines={[{ at: 0, cmd: "cd my-video" }]} />
+        <TerminalContent frame={frame - S(5.1)} lines={[{ at: 0, cmd: "cd my-video" }]} />
       )}
     </Panel>
   );
@@ -323,16 +323,16 @@ const TerminalContent: React.FC<{ frame: number; lines: Line[] }> = ({ frame, li
 
 const NpmScene: React.FC = () => {
   const frame = useCurrentFrame();
-  const prog = interpolate(frame, [S(1.8), S(4.2)], [0, 100], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const prog = interpolate(frame, [S(2.9), S(4.4)], [0, 100], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const done = prog >= 100;
-  const dev = frame > S(5.2);
-  const ready = frame > S(6.6);
-  const pv = useSpring(S(6.6), 12);
+  const dev = frame > S(4.5);
+  const ready = frame > S(6.0);
+  const pv = useSpring(S(6.0), 12);
   return (
     <Panel title="Терминал">
       <div style={{ fontFamily: MONO, fontSize: 44, color: "#e2e8f0", lineHeight: 1.6 }}>
-        <div><span style={{ color: "#22c55e" }}>$ </span>{typed("npm install", frame, 0, 8)}{frame < S(1.8) && <Cursor />}</div>
-        {frame >= S(1.8) && (
+        <div><span style={{ color: "#22c55e" }}>$ </span>{typed("npm install", frame, S(1.0), 8)}{frame < S(2.9) && <Cursor />}</div>
+        {frame >= S(2.9) && (
           <div style={{ marginTop: 10 }}>
             <div style={{ height: 30, background: "#1e293b", borderRadius: 15, overflow: "hidden" }}>
               <div style={{ width: `${prog}%`, height: "100%", background: "#38bdf8" }} />
@@ -342,7 +342,7 @@ const NpmScene: React.FC = () => {
         )}
         {dev && (
           <div style={{ marginTop: 20 }}>
-            <span style={{ color: "#22c55e" }}>$ </span>{typed("npm run dev", frame, S(5.2), 8)}
+            <span style={{ color: "#22c55e" }}>$ </span>{typed("npm run dev", frame, S(4.5), 8)}
             {!ready && <Cursor />}
           </div>
         )}
@@ -417,14 +417,14 @@ export const MyComponent: React.FC = () => {
   const hue = interpolate(frame, [0, DURATION], [230, 290]);
   return (
     <AbsoluteFill style={{ background: `linear-gradient(160deg, hsl(${hue},70%,18%), hsl(${hue + 50},80%,8%))` }}>
-      {stage(0, 4.5, <Intro />)}
-      {stage(4.5, 11.3, <PhoneScene />)}
-      {stage(11.3, 16.4, <HollywoodScene />)}
-      {stage(16.4, 25.1, <PluginScene />)}
-      {stage(25.1, 31.4, <ZipScene />)}
-      {stage(31.4, 36.1, <NpmScene />)}
-      {stage(36.1, 40.6, <DoneScene />)}
-      {stage(40.6, 44.7, <RemotionCreateScene />)}
+      {stage(0, 5.2, <Intro />)}
+      {stage(5.2, 13.7, <PhoneScene />)}
+      {stage(13.7, 19.2, <HollywoodScene />)}
+      {stage(19.2, 28.3, <PluginScene />)}
+      {stage(28.3, 34.4, <ZipScene />)}
+      {stage(34.4, 41.4, <NpmScene />)}
+      {stage(41.4, 44.7, <DoneScene />)}
+      {stage(44.7, 48.6, <RemotionCreateScene />)}
 
       {/* character + desk */}
       <div style={{ position: "absolute", left: 260, top: 640 + 330, }}>
