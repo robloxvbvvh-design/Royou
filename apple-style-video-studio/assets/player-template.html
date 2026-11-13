@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Video</title>
+<!--
+  Рядом с этим файлом положи:
+    languages.json  → [{"code":"en","name":"English","video":"video.en.mp4","subs":"subs.en.vtt","title":"…","dir":"ltr"}, …]
+    video.<code>.mp4, subs.<code>.vtt
+  Работает офлайн, без внешних зависимостей. При открытии через file:// браузеры могут блокировать fetch;
+  тогда используется встроенный запасной список ниже (FALLBACK) — обнови его при сборке.
+-->
+<style>
+  :root{--bg:#f5f5f7;--fg:#1d1d1f;--muted:#6e6e73;--accent:#0071e3;--card:#fff}
+  @media (prefers-color-scheme:dark){:root{--bg:#000;--fg:#f5f5f7;--muted:#a1a1a6;--card:#161617}}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--fg);
+    font:17px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans",Helvetica,Arial,sans-serif}
+  main{width:min(960px,100% - 32px);padding:24px 0}
+  h1{font-size:clamp(28px,5vw,48px);letter-spacing:-.02em;margin:0 0 16px;font-weight:650}
+  .frame{border-radius:20px;overflow:hidden;background:#000;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+  video{display:block;width:100%;aspect-ratio:16/9;background:#000}
+  nav{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+  button{font:inherit;color:var(--fg);background:var(--card);border:1px solid color-mix(in srgb,var(--fg) 15%,transparent);
+    border-radius:999px;padding:8px 16px;cursor:pointer}
+  button[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:#fff}
+  button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+  p{color:var(--muted)}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<main>
+  <h1 id="title"></h1>
+  <div class="frame"><video id="v" controls playsinline preload="metadata"></video></div>
+  <nav id="langs" aria-label="Language"></nav>
+  <p id="note"></p>
+</main>
+<script>
+(function(){
+  // Запасной список, если languages.json недоступен (file://). Обнови при сборке.
+  var FALLBACK=[{code:"en",name:"English",video:"video.en.mp4",subs:"subs.en.vtt",title:"Video",dir:"ltr"}];
+  var RTL=["ar","he","fa","ur","ps","yi"];
+  var v=document.getElementById("v"),nav=document.getElementById("langs"),
+      titleEl=document.getElementById("title"),noteEl=document.getElementById("note");
+  var list=[];
+
+  // Разрешены только простые относительные имена файлов (защита от подмены путей).
+  function safe(p){return typeof p==="string"&&/^[\w.\- ]+\.(mp4|webm|vtt)$/i.test(p)?encodeURI(p):null;}
+
+  function pick(){
+    var saved=null;try{saved=localStorage.getItem("lang");}catch(e){}
+    var prefs=[saved].concat(navigator.languages||[navigator.language||"en"]);
+    for(var i=0;i<prefs.length;i++){
+      if(!prefs[i])continue;var c=prefs[i].toLowerCase();
+      for(var j=0;j<list.length;j++){
+        if(list[j].code.toLowerCase()===c||c.split("-")[0]===list[j].code.toLowerCase().split("-")[0])return list[j];
+      }
+    }
+    return list[0];
+  }
+
+  function show(l,keepTime){
+    var t=keepTime?v.currentTime:0,paused=v.paused;
+    document.documentElement.lang=l.code;
+    document.documentElement.dir=l.dir||(RTL.indexOf(l.code.split("-")[0])>-1?"rtl":"ltr");
+    titleEl.textContent=l.title||l.name;document.title=l.title||l.name;
+    while(v.firstChild)v.removeChild(v.firstChild);
+    var src=safe(l.video);if(src)v.src=src;
+    var s=safe(l.subs);
+    if(s){var tr=document.createElement("track");tr.kind="subtitles";tr.src=s;tr.srclang=l.code;tr.label=l.name;tr.default=true;v.appendChild(tr);}
+    v.addEventListener("loadedmetadata",function once(){v.removeEventListener("loadedmetadata",once);
+      if(keepTime)v.currentTime=t;if(keepTime&&!paused)v.play();});
+    v.load();
+    Array.prototype.forEach.call(nav.children,function(b){b.setAttribute("aria-pressed",b.dataset.code===l.code);});
+    try{localStorage.setItem("lang",l.code);}catch(e){}
+  }
+
+  function init(data){
+    list=Array.isArray(data)&&data.length?data:FALLBACK;
+    list.forEach(function(l){
+      var b=document.createElement("button");b.type="button";b.textContent=l.name;b.dataset.code=l.code;
+      b.lang=l.code;b.addEventListener("click",function(){show(l,true);});nav.appendChild(b);
+    });
+    show(pick(),false);
+  }
+
+  fetch("languages.json").then(function(r){return r.json();}).then(init).catch(function(){init(FALLBACK);});
+})();
+</script>
+</body>
+</html>
