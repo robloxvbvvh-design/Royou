@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Royou — нейросеть</title>
+<style>
+:root{
+  --bg:#fff;--side:#f0f4f9;--card:#f0f4f9;--card-h:#e3e8ef;--text:#1f1f1f;--muted:#5f6368;
+  --input:#f0f4f9;--hover:#dde3ea;--border:#dadce0;--user:#e9eef6;
+  --grad:linear-gradient(90deg,#4285f4,#9b72cb 50%,#d96570);
+}
+:root[data-theme=dark]{
+  --bg:#131314;--side:#1e1f20;--card:#1e1f20;--card-h:#333537;--text:#e3e3e3;--muted:#9aa0a6;
+  --input:#1e1f20;--hover:#333537;--border:#3c4043;--user:#282a2c;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font-family:"Google Sans",Roboto,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);display:flex;overflow:hidden}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.sidebar{width:280px;background:var(--side);padding:16px 12px;display:flex;flex-direction:column;gap:8px;transition:margin .25s}
+.sidebar.closed{margin-left:-280px}
+.icon-btn{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-size:20px}
+.icon-btn:hover{background:var(--hover)}
+.new-chat{display:flex;align-items:center;gap:10px;padding:10px 16px;border-radius:999px;background:var(--hover);width:fit-content;margin:8px 0 16px;color:var(--muted);font-size:14px}
+.sidebar h4{margin:8px 12px;font-size:13px;font-weight:500}
+#history{flex:1;overflow:auto}
+.hist{display:block;width:100%;text-align:left;padding:8px 12px;border-radius:999px;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hist:hover,.hist.active{background:var(--hover)}
+.side-foot button{display:flex;gap:12px;align-items:center;width:100%;padding:10px 12px;border-radius:999px;font-size:14px}
+.side-foot button:hover{background:var(--hover)}
+main{flex:1;display:flex;flex-direction:column;min-width:0}
+header{display:flex;align-items:center;gap:8px;padding:12px 16px}
+.brand{font-size:20px;font-weight:500;margin-right:auto}
+.pill{font-size:12px;color:var(--muted);padding:4px 10px;border:1px solid var(--border);border-radius:999px}
+.scroll{flex:1;overflow:auto;padding:0 16px}
+.wrap{max-width:820px;margin:0 auto}
+.hello{padding-top:8vh}
+.hello h1{font-size:clamp(32px,6vw,56px);font-weight:500;margin:0;line-height:1.15;letter-spacing:-.5px}
+.grad{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hello h2{font-size:clamp(32px,6vw,56px);font-weight:500;margin:0;color:#c4c7c5;letter-spacing:-.5px}
+:root[data-theme=dark] .hello h2{color:#444746}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-top:48px}
+.card{background:var(--card);border-radius:16px;padding:16px;height:170px;text-align:left;display:flex;flex-direction:column;justify-content:space-between;font-size:15px;line-height:1.4}
+.card:hover{background:var(--card-h)}
+.card span{align-self:flex-end;background:var(--bg);width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-size:18px}
+.msg{display:flex;gap:16px;padding:16px 0;line-height:1.65;font-size:16px}
+.msg.user{justify-content:flex-end}
+.msg.user .body{background:var(--user);padding:12px 18px;border-radius:20px 20px 4px 20px;max-width:80%;white-space:pre-wrap}
+.avatar{flex:none;width:32px;height:32px;border-radius:50%;background:var(--grad);display:grid;place-items:center;color:#fff;font-size:16px}
+.msg.bot .body{flex:1;min-width:0;overflow-wrap:anywhere}
+.msg.bot.thinking .avatar{animation:spin 1.2s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.body p{margin:0 0 12px}
+.body pre{background:var(--card);border-radius:12px;padding:14px;overflow:auto;font-size:14px}
+.body code{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--card);padding:1px 5px;border-radius:5px;font-size:.9em}
+.body pre code{background:none;padding:0}
+.body ul,.body ol{margin:0 0 12px;padding-left:24px}
+.cursor::after{content:"";display:inline-block;width:8px;height:16px;background:currentColor;margin-left:2px;vertical-align:middle;animation:blink 1s infinite}
+@keyframes blink{50%{opacity:0}}
+.actions{display:flex;gap:4px;margin-top:4px}
+.actions button{font-size:13px;color:var(--muted);padding:4px 10px;border-radius:999px}
+.actions button:hover{background:var(--hover)}
+.composer{padding:8px 16px 16px}
+.box{max-width:820px;margin:0 auto;background:var(--input);border-radius:28px;padding:12px 12px 8px 20px;display:flex;flex-direction:column}
+.box:focus-within{box-shadow:0 0 0 2px #4285f455}
+textarea{width:100%;background:none;border:0;outline:0;resize:none;font:inherit;color:inherit;font-size:16px;max-height:200px;padding:6px 0}
+.row{display:flex;align-items:center;justify-content:space-between}
+.send{background:var(--text);color:var(--bg);width:40px;height:40px;border-radius:50%;font-size:18px;display:grid;place-items:center}
+.send:disabled{opacity:.3;cursor:default}
+.note{text-align:center;font-size:12px;color:var(--muted);margin-top:10px}
+dialog{border:0;border-radius:24px;padding:24px;background:var(--bg);color:var(--text);width:min(440px,92vw)}
+dialog::backdrop{background:#0008}
+dialog h3{margin:0 0 8px;font-weight:500}
+dialog p{color:var(--muted);font-size:14px;margin:0 0 12px;line-height:1.5}
+dialog input{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--input);color:inherit;font:inherit}
+.dlg-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.btn{padding:10px 20px;border-radius:999px;font-size:14px}
+.btn.primary{background:#0b57d0;color:#fff}
+.btn:hover{filter:brightness(.95)}
+@media(max-width:760px){
+  .sidebar{position:fixed;inset:0 auto 0 0;z-index:5;margin-left:-280px;box-shadow:0 0 30px #0005}
+  .sidebar.open{margin-left:0}
+  .hello{padding-top:4vh}
+}
+</style>
+</head>
+<body>
+
+<aside class="sidebar" id="sidebar">
+  <button class="icon-btn" id="menu2" title="Меню">☰</button>
+  <button class="new-chat" id="newChat">＋ Новый чат</button>
+  <h4>Недавние</h4>
+  <div id="history"></div>
+  <div class="side-foot">
+    <button id="themeBtn">🌓 Сменить тему</button>
+    <button id="settingsBtn">⚙️ Настройки</button>
+  </div>
+</aside>
+
+<main>
+  <header>
+    <button class="icon-btn" id="menu" title="Меню">☰</button>
+    <span class="brand">Royou</span>
+    <span class="pill" id="modeLabel">Демо-режим</span>
+  </header>
+
+  <div class="scroll" id="scroll">
+    <div class="wrap" id="chat">
+      <div class="hello" id="hello">
+        <h1><span class="grad">Привет!</span></h1>
+        <h2>Чем могу помочь сегодня?</h2>
+        <div class="cards">
+          <button class="card" data-p="Объясни простыми словами, как работает нейросеть">Объясни простыми словами, как работает нейросеть<span>💡</span></button>
+          <button class="card" data-p="Напиши на Python функцию, которая проверяет, является ли строка палиндромом">Напиши функцию на Python для проверки палиндрома<span>💻</span></button>
+          <button class="card" data-p="Составь план тренировок на неделю для начинающего">Составь план тренировок на неделю<span>🏃</span></button>
+          <button class="card" data-p="Придумай 5 идей для стартапа с использованием ИИ">Придумай 5 идей для ИИ-стартапа<span>🚀</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="composer">
+    <form class="box" id="form">
+      <textarea id="input" rows="1" placeholder="Введите запрос для Royou"></textarea>
+      <div class="row">
+        <span style="color:var(--muted);font-size:13px">✨ Royou 1.0</span>
+        <button class="send" id="send" disabled title="Отправить">➤</button>
+      </div>
+    </form>
+    <div class="note">Royou может ошибаться. Проверяйте важную информацию.</div>
+  </div>
+</main>
+
+<dialog id="dlg">
+  <h3>Настройки</h3>
+  <p>Чтобы Royou отвечал настоящей нейросетью, вставьте API-ключ Google Gemini (получить бесплатно: aistudio.google.com/apikey). Ключ хранится только в вашем браузере. Без ключа работает демо-режим.</p>
+  <input id="key" type="password" placeholder="API-ключ Gemini" autocomplete="off">
+  <div class="dlg-actions">
+    <button class="btn" id="cancel">Отмена</button>
+    <button class="btn primary" id="save">Сохранить</button>
+  </div>
+</dialog>
+
+<script>
+const $ = s => document.querySelector(s);
+const chat=$('#chat'), scroll=$('#scroll'), input=$('#input'), send=$('#send'), hello=$('#hello');
+const store = {
+  get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},
+  set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}
+};
+let chats = store.get('royou_chats', []);   // [{id,title,messages:[{role,text}]}]
+let cur = null;
+let busy = false;
+
+// theme
+const applyTheme = t => document.documentElement.dataset.theme = t;
+applyTheme(store.get('royou_theme', matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'));
+$('#themeBtn').onclick = () => {
+  const t = document.documentElement.dataset.theme==='dark'?'light':'dark';
+  applyTheme(t); store.set('royou_theme',t);
+};
+
+// sidebar
+const side=$('#sidebar');
+const toggleSide = () => innerWidth<=760 ? side.classList.toggle('open') : side.classList.toggle('closed');
+$('#menu').onclick = $('#menu2').onclick = toggleSide;
+
+// settings
+const dlg=$('#dlg');
+const updateMode = () => $('#modeLabel').textContent = store.get('royou_key','') ? 'Gemini API' : 'Демо-режим';
+$('#settingsBtn').onclick = () => { $('#key').value = store.get('royou_key',''); dlg.showModal(); };
+$('#cancel').onclick = () => dlg.close();
+$('#save').onclick = () => { store.set('royou_key', $('#key').value.trim()); updateMode(); dlg.close(); };
+updateMode();
+
+// markdown-lite
+const esc = s => s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+function md(src){
+  const blocks=[];
+  src = esc(src).replace(/```(\w*)\n([\s\S]*?)(```|$)/g,(_,l,c)=>{blocks.push(`<pre><code>${c.replace(/\n$/,'')}</code></pre>`);return `\u0000${blocks.length-1}\u0000`});
+  const inline = t => t.replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>').replace(/(^|[^*])\*([^*\n]+)\*/g,'$1<i>$2</i>');
+  const out=[]; let list=null;
+  const close=()=>{if(list){out.push(`</${list}>`);list=null}};
+  for(const line of src.split('\n')){
+    let m;
+    if(m=line.match(/^\s*[-*]\s+(.*)/)){ if(list!=='ul'){close();out.push('<ul>');list='ul'} out.push(`<li>${inline(m[1])}</li>`); }
+    else if(m=line.match(/^\s*\d+[.)]\s+(.*)/)){ if(list!=='ol'){close();out.push('<ol>');list='ol'} out.push(`<li>${inline(m[1])}</li>`); }
+    else if(m=line.match(/^#{1,4}\s+(.*)/)){ close(); out.push(`<p><b>${inline(m[1])}</b></p>`); }
+    else if(/^\u0000\d+\u0000$/.test(line.trim())){ close(); out.push(line.trim()); }
+    else if(line.trim()===''){ close(); }
+    else { close(); out.push(`<p>${inline(line)}</p>`); }
+  }
+  close();
+  return out.join('').replace(/\u0000(\d+)\u0000/g,(_,i)=>blocks[i]);
+}
+
+// rendering
+function addMsg(role,text=''){
+  hello.style.display='none';
+  const d=document.createElement('div');
+  d.className='msg '+(role==='user'?'user':'bot');
+  d.innerHTML = role==='user' ? '<div class="body"></div>' : '<div class="avatar">✦</div><div class="body"></div>';
+  chat.appendChild(d);
+  const body=d.querySelector('.body');
+  if(role==='user') body.textContent=text; else body.innerHTML=md(text);
+  scroll.scrollTop=scroll.scrollHeight;
+  return {el:d,body};
+}
+function renderChat(){
+  chat.querySelectorAll('.msg').forEach(e=>e.remove());
+  if(!cur||!cur.messages.length){hello.style.display='';return}
+  cur.messages.forEach(m=>addMsg(m.role,m.text));
+  chat.querySelectorAll('.msg.bot .body').forEach(addActions);
+}
+function addActions(body){
+  const a=document.createElement('div'); a.className='actions';
+  a.innerHTML='<button data-a="copy">📋 Копировать</button><button data-a="redo">🔄 Заново</button>';
+  body.appendChild(a);
+}
+chat.addEventListener('click',e=>{
+  const b=e.target.closest('[data-a]'); if(!b) return;
+  if(b.dataset.a==='copy'){
+    const t=b.closest('.body').cloneNode(true); t.querySelector('.actions').remove();
+    navigator.clipboard?.writeText(t.innerText); b.textContent='✓ Скопировано';
+  } else if(b.dataset.a==='redo' && !busy){
+    const msgs=cur.messages; if(msgs.at(-1)?.role==='bot') msgs.pop();
+    const last=msgs.pop(); cur.messages=msgs; ask(last.text);
+  }
+});
+function renderHistory(){
+  const h=$('#history'); h.innerHTML='';
+  chats.slice().reverse().forEach(c=>{
+    const b=document.createElement('button');
+    b.className='hist'+(cur&&c.id===cur.id?' active':''); b.textContent='💬 '+c.title;
+    b.onclick=()=>{cur=c;renderChat();renderHistory();side.classList.remove('open')};
+    h.appendChild(b);
+  });
+}
+function newChat(){cur=null;renderChat();renderHistory();input.focus();side.classList.remove('open')}
+$('#newChat').onclick=newChat;
+const save=()=>store.set('royou_chats',chats);
+
+// AI backends
+async function* geminiStream(history,key){
+  const url=`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=${encodeURIComponent(key)}`;
+  const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    contents:history.map(m=>({role:m.role==='user'?'user':'model',parts:[{text:m.text}]}))})});
+  if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error?.message||('HTTP '+res.status))}
+  const rd=res.body.getReader(), dec=new TextDecoder(); let buf='';
+  for(;;){
+    const {done,value}=await rd.read(); if(done)break;
+    buf+=dec.decode(value,{stream:true});
+    const lines=buf.split('\n'); buf=lines.pop();
+    for(const l of lines){
+      if(!l.startsWith('data:'))continue;
+      try{const j=JSON.parse(l.slice(5)); const t=j.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join(''); if(t) yield t}catch{}
+    }
+  }
+}
+async function* demoStream(q){
+  const l=q.toLowerCase();
+  let r;
+  if(/привет|здравств|hello|hi\b/.test(l)) r='Привет! 👋 Я **Royou** — нейросеть в стиле Gemini. Сейчас я работаю в демо-режиме. Подключите API-ключ в **Настройках**, и я начну отвечать по-настоящему.';
+  else if(/python|код|функци/.test(l)) r='Вот пример на Python:\n\n```python\ndef is_palindrome(s: str) -> bool:\n    t = "".join(c.lower() for c in s if c.isalnum())\n    return t == t[::-1]\n\nprint(is_palindrome("А роза упала на лапу Азора"))  # True\n```\n\nФункция убирает всё, кроме букв и цифр, и сравнивает строку с её разворотом.';
+  else if(/нейросет/.test(l)) r='Нейросеть — это набор простых вычислительных «нейронов», собранных в слои:\n\n1. **Вход** получает данные (текст, картинку).\n2. **Скрытые слои** умножают значения на веса и преобразуют их.\n3. **Выход** выдаёт ответ.\n\nПри обучении веса подстраиваются так, чтобы ошибка становилась меньше. Так сеть *учится* на примерах.';
+  else if(/тренировк|план/.test(l)) r='Простой план на неделю:\n\n- **Пн** — ходьба или лёгкий бег 30 минут\n- **Вт** — отжимания, приседания, планка\n- **Ср** — отдых и растяжка\n- **Чт** — интервалы: 1 мин быстро / 2 мин спокойно ×8\n- **Пт** — силовая на всё тело\n- **Сб** — прогулка или велосипед\n- **Вс** — отдых';
+  else if(/идей|стартап/.test(l)) r='Идеи для ИИ-стартапа:\n\n1. Персональный репетитор по любому предмету\n2. Ассистент для разбора договоров\n3. Генератор рецептов по содержимому холодильника\n4. ИИ-редактор видео по текстовому описанию\n5. Помощник для поддержки клиентов малого бизнеса';
+  else r=`Вы спросили: «${q}».\n\nЯ сейчас в **демо-режиме** и отвечаю шаблонами. Откройте ⚙️ **Настройки** и вставьте API-ключ Gemini, чтобы получать полноценные ответы нейросети.`;
+  for(let i=0;i<r.length;i+=3){ await new Promise(s=>setTimeout(s,18)); yield r.slice(i,i+3); }
+}
+
+async function ask(text){
+  if(busy||!text.trim())return;
+  busy=true; send.disabled=true;
+  if(!cur){cur={id:Date.now(),title:text.slice(0,40),messages:[]};chats.push(cur);renderHistory()}
+  cur.messages.push({role:'user',text}); addMsg('user',text);
+  const bot=addMsg('bot',''); bot.el.classList.add('thinking'); bot.body.classList.add('cursor');
+  let acc='';
+  try{
+    const key=store.get('royou_key','');
+    const stream = key ? geminiStream(cur.messages,key) : demoStream(text);
+    for await(const chunk of stream){
+      bot.el.classList.remove('thinking');
+      acc+=chunk; bot.body.innerHTML=md(acc); scroll.scrollTop=scroll.scrollHeight;
+    }
+  }catch(e){ acc=(acc?acc+'\n\n':'')+'⚠️ Ошибка: '+e.message; bot.body.innerHTML=md(acc); }
+  bot.el.classList.remove('thinking'); bot.body.classList.remove('cursor');
+  if(!acc) { acc='Пустой ответ.'; bot.body.innerHTML=md(acc); }
+  cur.messages.push({role:'bot',text:acc}); save(); addActions(bot.body);
+  busy=false; send.disabled=!input.value.trim(); input.focus();
+}
+
+// input handling
+const grow=()=>{input.style.height='auto';input.style.height=input.scrollHeight+'px';send.disabled=busy||!input.value.trim()};
+input.addEventListener('input',grow);
+input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();$('#form').requestSubmit()}});
+$('#form').onsubmit=e=>{e.preventDefault();const t=input.value.trim();if(!t||busy)return;input.value='';grow();ask(t)};
+document.querySelectorAll('.card').forEach(c=>c.onclick=()=>ask(c.dataset.p));
+
+renderHistory();
+</script>
+</body>
+</html>
