@@ -130,3 +130,13 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
   .nav nav{display:none}
   .plan.hot{transform:none}
 }
+
+/* auth */
+.auth{display:flex;align-items:center;gap:10px}
+.who{font-size:14px;font-weight:600;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+dialog{border:0;border-radius:var(--r);padding:28px;width:min(420px,92vw);background:var(--card);color:var(--ink);box-shadow:0 30px 80px rgba(0,0,0,.35)}
+dialog::backdrop{background:rgba(0,0,0,.45);backdrop-filter:blur(6px)}
+dialog .form{max-width:none}
+.err{color:#ff3b30;font-size:14px;min-height:1.2em}
+.link{border:0;background:none;color:var(--g2);cursor:pointer;font:inherit;font-size:14px}
+.post .foot button[data-del]{margin-left:6px}

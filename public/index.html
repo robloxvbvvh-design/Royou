@@ -27,7 +27,7 @@
     <a href="#ai">ИИ</a>
     <a href="#money">Заработок</a>
   </nav>
-  <a class="btn small" href="#create">Выложить рекламу</a>
+  <div class="auth" id="authArea"></div>
 </header>
 
 <main id="top">
@@ -129,7 +129,7 @@
         <div id="aiText" class="ai-text">Здесь появится результат</div>
         <div class="row">
           <button class="btn small" id="aiUse" disabled>Использовать в посте</button>
-          <a class="btn small ghost" id="aiDl" download="royou-cover.png" href="#">Скачать обложку</a>
+          <span class="note">Обложка прикрепится к посту</span>
         </div>
       </div>
     </div>
@@ -189,6 +189,19 @@
   <span class="logo"><span class="dot"></span>Royou</span>
   <span>© 2026 · Сделано с 💚</span>
 </footer>
+
+
+<dialog id="authDlg">
+  <form id="authForm" class="form">
+    <h2 id="authTitle">Вход</h2>
+    <label hidden>Имя<input id="authName" maxlength="40" autocomplete="nickname"></label>
+    <label>Email<input id="authEmail" type="email" required autocomplete="email"></label>
+    <label>Пароль<input id="authPass" type="password" required minlength="8" autocomplete="current-password"></label>
+    <p id="authErr" class="err" role="alert"></p>
+    <div class="row"><button class="btn" id="authSubmit" type="submit">Войти</button><button class="btn ghost" id="authCancel" type="button">Отмена</button></div>
+    <button class="link" id="authSwitch" type="button"></button>
+  </form>
+</dialog>
 
 <div id="toast" role="status"></div>
 <script src="app.js"></script>

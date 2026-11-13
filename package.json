@@ -1,0 +1,13 @@
+{
+  "name": "royou",
+  "version": "1.0.0",
+  "description": "Площадка для рекламы сайтов, идей и курсов",
+  "private": true,
+  "type": "commonjs",
+  "engines": { "node": ">=22.5" },
+  "scripts": {
+    "start": "node --no-warnings server.js",
+    "test": "node --no-warnings test/smoke.js",
+    "set-plan": "node --no-warnings scripts/set-plan.js"
+  }
+}

@@ -50,44 +50,86 @@ $("#coursesGrid").innerHTML = COURSES.map(c => `
   </article>`).join("");
 $$(".course").forEach((el, i) => el.onclick = () => toast("Курс «" + COURSES[i].t + "» скоро откроется"));
 
-/* ---------- Лента ---------- */
-const DEMO = [
-  { id: "d1", type: "ad", title: "Школа английского Lingo", text: "Говори свободно за 3 месяца. Первый урок бесплатно.", link: "https://example.com", emoji: "🗣️", bg: "linear-gradient(135deg,#34c759,#b6f2c9)", likes: 124, clicks: 980 },
-  { id: "d2", type: "idea", title: "Идея: приложение для обмена книгами", text: "Фоткаешь книгу — находишь соседа, который хочет её обменять.", link: "https://example.com", emoji: "📚", bg: "linear-gradient(135deg,#ffd60a,#fff3b0)", likes: 87, clicks: 310 },
-  { id: "d3", type: "course", title: "Курс: монтаж на телефоне", text: "12 коротких уроков. Сделай видео как у блогеров.", link: "https://example.com", emoji: "🎞️", bg: "linear-gradient(135deg,#0a84ff,#bfe0ff)", likes: 203, clicks: 1540 },
-  { id: "d4", type: "ad", title: "GreenBox — доставка еды", text: "Свежие продукты за 30 минут. Промокод ROYOU.", link: "https://example.com", emoji: "🥗", bg: "linear-gradient(135deg,#30d158,#d9f7e4)", likes: 56, clicks: 420 },
-];
-let posts = store.get("royou_posts", null);
-if (!posts) { posts = DEMO; store.set("royou_posts", posts); }
-let liked = new Set(store.get("royou_liked", []));
-let filter = "all";
-const LABEL = { ad: "Реклама", idea: "Идея", course: "Курс" };
+/* ---------- API ---------- */
+async function api(path, opts = {}) {
+  const r = await fetch("/api" + path, {
+    method: opts.method || "GET", credentials: "same-origin",
+    headers: opts.body ? { "Content-Type": "application/json" } : undefined,
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error(data.error || "Ошибка сервера"); e.status = r.status; throw e; }
+  return data;
+}
 
+/* ---------- Аккаунт ---------- */
+let me = null, authMode = "login";
+function renderAuth() {
+  $("#authArea").innerHTML = me
+    ? `<span class="who" title="${esc(me.email)}">${esc(me.name)}${me.plan === "pro" ? " · Про" : ""}</span><button class="btn small ghost" id="btnLogout">Выйти</button>`
+    : `<button class="btn small ghost" id="btnLogin">Войти</button>`;
+}
+function openAuth(mode) {
+  authMode = mode || "login";
+  $("#authTitle").textContent = authMode === "login" ? "Вход" : "Регистрация";
+  $("#authName").parentElement.hidden = authMode === "login";
+  $("#authName").required = authMode === "register";
+  $("#authSubmit").textContent = authMode === "login" ? "Войти" : "Создать аккаунт";
+  $("#authSwitch").textContent = authMode === "login" ? "Нет аккаунта? Зарегистрироваться" : "Уже есть аккаунт? Войти";
+  $("#authPass").autocomplete = authMode === "login" ? "current-password" : "new-password";
+  $("#authErr").textContent = ""; $("#authDlg").showModal(); $("#authEmail").focus();
+}
+$("#authArea").addEventListener("click", async e => {
+  if (e.target.id === "btnLogin") openAuth("login");
+  if (e.target.id === "btnLogout") { await api("/logout", { method: "POST", body: {} }); me = null; renderAuth(); loadFeed(); toast("Вы вышли"); }
+});
+$("#authSwitch").onclick = () => openAuth(authMode === "login" ? "register" : "login");
+$("#authCancel").onclick = () => $("#authDlg").close();
+$("#authForm").addEventListener("submit", async e => {
+  e.preventDefault(); $("#authErr").textContent = "";
+  const body = { email: $("#authEmail").value, password: $("#authPass").value };
+  if (authMode === "register") body.name = $("#authName").value;
+  try {
+    me = (await api(authMode === "login" ? "/login" : "/register", { method: "POST", body })).user;
+    $("#authDlg").close(); $("#authForm").reset(); renderAuth(); loadFeed();
+    toast(authMode === "login" ? "С возвращением, " + me.name : "Аккаунт создан 🎉");
+  } catch (err) { $("#authErr").textContent = err.message; }
+});
+
+/* ---------- Лента ---------- */
+let posts = [], filter = "all";
+const LABEL = { ad: "Реклама", idea: "Идея", course: "Курс" };
+async function loadFeed() {
+  try { posts = (await api("/posts")).posts; renderFeed(); }
+  catch { $("#feedGrid").innerHTML = `<p class="sub">Не удалось загрузить ленту</p>`; }
+}
 function renderFeed() {
   const list = posts.filter(p => filter === "all" || p.type === filter);
   $("#feedGrid").innerHTML = list.length ? list.map((p, i) => {
     const media = p.media
-      ? (p.media.startsWith("data:video") ? `<video class="media" src="${p.media}" controls playsinline></video>` : `<img class="media" src="${p.media}" alt="">`)
-      : p.cover ? `<img class="media" src="${p.cover}" alt="">`
-      : `<div class="media ph" style="background:${p.bg || "var(--g3)"}">${esc(p.emoji || "✨")}</div>`;
+      ? (/\.(mp4|webm)$/.test(p.media) ? `<video class="media" src="${esc(p.media)}" controls playsinline preload="metadata"></video>` : `<img class="media" src="${esc(p.media)}" alt="" loading="lazy">`)
+      : `<div class="media ph" style="background:${p.bg ? esc(p.bg) : "var(--g3)"}">${esc(p.emoji || "✨")}</div>`;
     return `<article class="post" style="animation-delay:${i * 60}ms">${media}
-      <div class="body"><span class="tag">${LABEL[p.type] || "Пост"}</span>
+      <div class="body"><span class="tag">${LABEL[p.type] || "Пост"} · ${esc(p.author)}</span>
       <h3>${esc(p.title)}</h3><p>${esc(p.text || "")}</p>
-      <div class="foot"><a class="btn small" href="${safeUrl(p.link)}" target="_blank" rel="noopener noreferrer nofollow" data-click="${p.id}">Перейти →</a>
+      <div class="foot"><a class="btn small" href="${p.go}" target="_blank" rel="noopener noreferrer nofollow" data-click="${p.id}">Перейти →</a>
       <span>👆 ${p.clicks}</span>
-      <button data-like="${p.id}" class="${liked.has(p.id) ? "liked" : ""}">${liked.has(p.id) ? "♥" : "♡"} ${p.likes}</button></div></div></article>`;
+      <button data-like="${p.id}" class="${p.liked ? "liked" : ""}">${p.liked ? "♥" : "♡"} ${p.likes}</button>
+      ${p.mine ? `<button data-del="${p.id}" title="Удалить">🗑</button>` : ""}</div></div></article>`;
   }).join("") : `<p class="sub">Пока пусто — стань первым!</p>`;
 }
-$("#feedGrid").addEventListener("click", e => {
-  const lk = e.target.closest("[data-like]"), ck = e.target.closest("[data-click]");
-  if (lk) {
-    const p = posts.find(x => x.id === lk.dataset.like);
-    if (liked.has(p.id)) { liked.delete(p.id); p.likes--; } else { liked.add(p.id); p.likes++; }
-    store.set("royou_liked", [...liked]); store.set("royou_posts", posts); renderFeed();
-  } else if (ck) {
-    const p = posts.find(x => x.id === ck.dataset.click); p.clicks++;
-    store.set("royou_posts", posts); setTimeout(renderFeed, 50);
-  }
+$("#feedGrid").addEventListener("click", async e => {
+  const lk = e.target.closest("[data-like]"), dl = e.target.closest("[data-del]"), ck = e.target.closest("[data-click]");
+  try {
+    if (lk) {
+      if (!me) return openAuth("login");
+      const p = posts.find(x => x.id == lk.dataset.like), r = await api(`/posts/${p.id}/like`, { method: "POST", body: {} });
+      p.liked = r.liked; p.likes = r.likes; renderFeed();
+    } else if (dl) {
+      if (!confirm("Удалить пост?")) return;
+      await api("/posts/" + dl.dataset.del, { method: "DELETE" }); toast("Удалено"); loadFeed();
+    } else if (ck) setTimeout(loadFeed, 800);
+  } catch (err) { toast(err.message); }
 });
 $("#filters").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
@@ -98,7 +140,7 @@ $("#filters").addEventListener("click", e => {
 let fileData = null, aiCover = null;
 $("#fFile").addEventListener("change", e => {
   const f = e.target.files[0]; if (!f) { fileData = null; $("#preview").hidden = true; return; }
-  if (f.size > 3 * 1024 * 1024) { toast("Файл больше 3 МБ — выбери меньше"); e.target.value = ""; return; }
+  if (f.size > 4 * 1024 * 1024) { toast("Файл больше 4 МБ — выбери меньше"); e.target.value = ""; return; }
   const r = new FileReader();
   r.onload = () => {
     fileData = r.result; aiCover = null;
@@ -107,18 +149,19 @@ $("#fFile").addEventListener("change", e => {
   };
   r.readAsDataURL(f);
 });
-$("#postForm").addEventListener("submit", e => {
+$("#postForm").addEventListener("submit", async e => {
   e.preventDefault();
-  const type = $("#fType").value;
-  const p = {
-    id: "p" + Date.now(), type, title: $("#fTitle").value.trim(), text: $("#fText").value.trim(),
-    link: $("#fLink").value.trim(), media: fileData, cover: aiCover,
-    emoji: { ad: "📣", idea: "💡", course: "🎓" }[type], likes: 0, clicks: 0
-  };
-  posts.unshift(p); store.set("royou_posts", posts);
-  e.target.reset(); fileData = aiCover = null; $("#preview").hidden = true;
-  filter = "all"; $$("#filters button").forEach(x => x.classList.toggle("on", x.dataset.f === "all"));
-  renderFeed(); toast("Опубликовано! 🎉"); location.hash = "#feed";
+  if (!me) { openAuth("register"); toast("Сначала создайте аккаунт"); return; }
+  const btn = e.submitter; btn && (btn.disabled = true);
+  try {
+    await api("/posts", { method: "POST", body: {
+      type: $("#fType").value, title: $("#fTitle").value, text: $("#fText").value,
+      link: $("#fLink").value, media: fileData || aiCover || undefined } });
+    e.target.reset(); fileData = aiCover = null; $("#preview").hidden = true;
+    filter = "all"; $$("#filters button").forEach(x => x.classList.toggle("on", x.dataset.f === "all"));
+    await loadFeed(); toast("Опубликовано! 🎉"); location.hash = "#feed";
+  } catch (err) { toast(err.message); }
+  finally { btn && (btn.disabled = false); }
 });
 $("#toAI").onclick = () => { location.hash = "#ai"; $("#aiTopic").value ||= $("#fTitle").value; $("#aiTopic").focus(); };
 
@@ -161,7 +204,6 @@ $("#aiGo").onclick = async () => {
   drawCover(topic, style);
   $("#aiText").textContent = text;
   const url = $("#aiCanvas").toDataURL("image/jpeg", .85);
-  $("#aiDl").href = $("#aiCanvas").toDataURL("image/png");
   aiState = { title: topic, text, cover: url }; $("#aiUse").disabled = false;
   toast("Готово ✨");
 };
@@ -180,6 +222,7 @@ function calc() {
   $("#vTotal").textContent = Math.round(cl * cpc * 30 + su * 490).toLocaleString("ru-RU");
 }
 ["#rClicks", "#rCpc", "#rSubs"].forEach(s => $(s).addEventListener("input", calc)); calc();
-$$("[data-buy]").forEach(b => b.onclick = () => toast("Тариф «" + b.dataset.buy + "»: подключите оплату (Stripe / ЮKassa) — см. README"));
 
-renderFeed();
+
+$$("[data-buy]").forEach(b => b.onclick = () => toast("Оплата ещё не подключена: тариф выдаётся вручную (npm run set-plan)"));
+(async () => { try { me = (await api("/me")).user; } catch {} renderAuth(); loadFeed(); })();
