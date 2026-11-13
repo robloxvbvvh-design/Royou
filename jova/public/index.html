@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Jova</title>
+<style>
+:root{--bg:#000;--panel:#0b0b0c;--line:#1f2023;--fg:#ececee;--mut:#8b8d94;--acc:#fff;--bub:#16171a;--ok:#4ade80;--warn:#f87171;--code:#0f1012;color-scheme:dark}
+@media (prefers-color-scheme:light){:root:not([data-theme=dark]){--bg:#fff;--panel:#f6f6f7;--line:#e4e4e7;--fg:#111;--mut:#666;--acc:#000;--bub:#f0f0f2;--code:#f4f4f5;color-scheme:light}}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 Inter,system-ui,-apple-system,Segoe UI,sans-serif;display:flex}
+button,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+#side{width:290px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:16px;gap:14px;min-width:0;overflow:auto}
+.logo{font-weight:800;font-size:22px;letter-spacing:-.03em}
+.btn{background:var(--acc);color:var(--bg);border:0;border-radius:10px;padding:9px 12px;font-weight:600}
+.btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
+.sec{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut)}
+.model{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:transparent;text-align:left;width:100%}
+.model.on{border-color:var(--acc)}.model b{font-weight:600}.model small{color:var(--mut)}
+.model.lock{opacity:.55}.tag{font-size:10px;border:1px solid var(--line);border-radius:99px;padding:0 6px;margin-left:6px;color:var(--mut)}
+.bar{height:6px;background:var(--line);border-radius:9px;overflow:hidden}.bar i{display:block;height:100%;background:var(--ok)}
+.bar.hot i{background:var(--warn)}.meter{font-size:12px;color:var(--mut);display:grid;gap:4px}
+#hist{display:grid;gap:4px}#hist button{background:none;border:0;text-align:left;padding:6px 8px;border-radius:8px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#hist button.on,#hist button:hover{background:var(--bub);color:var(--fg)}
+main{flex:1;display:flex;flex-direction:column;min-width:0}
+#top{padding:12px 20px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:center}
+#menu{display:none}
+#wrap{flex:1;display:flex;min-height:0}
+#chat{flex:1;overflow:auto;padding:24px 20px;min-width:0}
+.col{max-width:780px;margin:0 auto;display:grid;gap:20px}
+.msg{display:grid;gap:6px}.msg.user{justify-items:end}
+.msg .b{max-width:100%;overflow-wrap:anywhere}
+.msg.user .b{background:var(--bub);padding:9px 14px;border-radius:16px;max-width:85%;white-space:pre-wrap}
+.b p{margin:.5em 0}.b pre{background:var(--code);border:1px solid var(--line);border-radius:10px;padding:12px;overflow:auto;font-size:13px;position:relative}
+.b code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.9em}.b :not(pre)>code{background:var(--code);padding:1px 5px;border-radius:5px}
+.b a{color:var(--fg)}.b img,.b video{max-width:100%;border-radius:12px}
+.b .cp{position:absolute;top:6px;right:6px;font-size:11px;background:var(--bub);border:1px solid var(--line);border-radius:6px;padding:2px 8px}
+.cursor::after{content:"▍";animation:bl 1s steps(1) infinite;margin-left:1px}@keyframes bl{50%{opacity:0}}
+.tool{font-size:12.5px;color:var(--mut);border:1px solid var(--line);border-radius:8px;padding:3px 10px;width:fit-content}
+.err{color:var(--warn)}
+.hero{text-align:center;margin-top:12vh;color:var(--mut)}.hero h1{color:var(--fg);font-size:44px;letter-spacing:-.04em;margin:0}
+#comp{padding:12px 20px 18px}
+.box{max-width:780px;margin:0 auto;border:1px solid var(--line);border-radius:16px;background:var(--panel);padding:8px}
+#in{width:100%;border:0;background:none;resize:none;outline:none;max-height:200px;padding:6px 8px}
+.row{display:flex;gap:8px;align-items:center;padding:2px 4px}
+.chip{border:1px solid var(--line);background:none;border-radius:99px;padding:3px 11px;font-size:13px;color:var(--mut)}.chip.on{color:var(--fg);border-color:var(--fg)}
+.sp{flex:1}
+#thumbs{display:flex;gap:6px;padding:4px}#thumbs img{height:48px;border-radius:8px}
+#files{width:300px;border-left:1px solid var(--line);background:var(--panel);display:none;flex-direction:column;min-width:0}
+#files.show{display:flex}#files h4{margin:0;padding:12px 14px;font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.08em}
+#tree{padding:0 8px;overflow:auto;flex:1}#tree button{display:block;width:100%;text-align:left;background:none;border:0;padding:4px 6px;font:12.5px ui-monospace,Menlo,monospace;border-radius:6px;overflow:hidden;text-overflow:ellipsis}
+#tree button:hover{background:var(--bub)}#tree .new{color:var(--ok)}
+#view{border-top:1px solid var(--line);height:40%;overflow:auto;padding:10px;font:12px ui-monospace,Menlo,monospace;white-space:pre}
+dialog{background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:16px;max-width:720px;width:calc(100% - 32px)}
+dialog::backdrop{background:#000a}.plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:14px 0}
+.plan{border:1px solid var(--line);border-radius:12px;padding:12px;display:grid;gap:6px}.plan.cur{border-color:var(--acc)}.plan ul{margin:0;padding-left:18px;color:var(--mut);font-size:13px}
+@media (max-width:820px){#side{position:fixed;inset:0 25% 0 0;z-index:5;transform:translateX(-100%);transition:.2s}#side.open{transform:none}#menu{display:inline-block}#files.show{position:fixed;inset:0 0 0 20%;z-index:4}}
+</style></head><body>
+<aside id="side">
+  <div class="logo">Jova</div>
+  <button class="btn" id="new">+ Новый чат</button>
+  <div class="sec">Модель</div><div id="models" style="display:grid;gap:6px"></div>
+  <div class="sec">Лимиты · <span id="planName"></span></div>
+  <div class="meter"><span>За час: <span id="hTxt"></span></span><div class="bar" id="hBar"><i></i></div>
+  <span>За неделю: <span id="wTxt"></span></span><div class="bar" id="wBar"><i></i></div></div>
+  <button class="btn ghost" id="plansBtn">Подписки</button>
+  <div class="sec">История</div><div id="hist"></div>
+</aside>
+<main>
+  <div id="top"><button class="chip" id="menu">☰</button><b id="curName"></b><span id="curTag" style="color:var(--mut);font-size:13px"></span></div>
+  <div id="wrap">
+    <div id="chat"><div class="col" id="msgs"></div></div>
+    <aside id="files"><h4>Проект Jova Code</h4><div id="tree"></div><div id="view">Выберите файл</div></aside>
+  </div>
+  <div id="comp"><div class="box">
+    <div id="thumbs"></div>
+    <textarea id="in" rows="1" placeholder="Спросите Jova о чём угодно"></textarea>
+    <div class="row">
+      <button class="chip" id="attach" title="Добавить фото">📎 Фото</button>
+      <button class="chip on" id="srch">🌐 Поиск</button>
+      <span class="sp"></span><button class="btn" id="send">Отправить</button>
+    </div>
+  </div></div>
+</main>
+<input type="file" id="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden>
+<dialog id="dlg"><b style="font-size:18px">Подписки Jova</b><div class="plans" id="plansBox"></div>
+  <p id="payNote" style="color:var(--mut);font-size:13px;margin:0 0 12px"></p><button class="btn ghost" onclick="dlg.close()">Закрыть</button></dialog>
+<script>
+const $=s=>document.querySelector(s);
+const uid=(()=>{try{let v=localStorage.jova_uid;if(!v){v=crypto.randomUUID();localStorage.jova_uid=v}return v}catch{return 'anon-'+Math.random().toString(36).slice(2,12)}})();
+let S=null,chats=[],cur=null,model='jova-2.0',search=true,pics=[],busy=false;
+try{chats=JSON.parse(localStorage.jova_chats||'[]');model=localStorage.jova_model||model}catch{}
+const persist=()=>{try{localStorage.jova_chats=JSON.stringify(chats.slice(0,40));localStorage.jova_model=model}catch{}};
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const RANK={free:0,pro:1,max:2};
+
+function md(src){
+  const parts=[];let h=esc(src).replace(/```(\w*)\n?([\s\S]*?)(```|$)/g,(_,l,c)=>{parts.push(`<pre><button class="cp" onclick="copyCode(this)">копировать</button><code>${c.replace(/\n$/,'')}</code></pre>`);return `\u0000${parts.length-1}\u0000`});
+  h=h.split(/\n{2,}/).map(p=>{
+    if(/^#{1,3} /.test(p))return `<p><b>${p.replace(/^#+ /,'')}</b></p>`;
+    if(/^(\s*[-*] .+(\n|$))+$/.test(p))return '<ul>'+p.trim().split('\n').map(l=>`<li>${l.replace(/^\s*[-*] /,'')}</li>`).join('')+'</ul>';
+    return `<p>${p.replace(/\n/g,'<br>')}</p>`}).join('');
+  h=h.replace(/`([^`\n]+)`/g,'<code>$1</code>').replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>')
+   .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>')
+   .replace(/(^|[\s>])(https?:\/\/[^\s<)]+)/g,'$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+  return h.replace(/\u0000(\d+)\u0000/g,(_,i)=>parts[i]);
+}
+function copyCode(b){const t=b.parentElement.querySelector('code').textContent;try{navigator.clipboard.writeText(t).then(()=>b.textContent='готово')}catch{}}
+
+async function load(){
+  const r=await fetch('/api/state?user='+uid);S=await r.json();
+  if(!S.ready)toast('Сервер запущен без ключа модели (ANTHROPIC_API_KEY). Чат не ответит.');
+  paint();
+}
+function paint(){
+  const u=S.usage;$('#planName').textContent=u.planName;
+  const set=(k,x)=>{const p=Math.min(100,x.used/x.limit*100);$(k+'Bar i').style.width=p+'%';$(k+'Bar').classList.toggle('hot',p>85)};
+  set('#h',u.hour);set('#w',u.week);
+  $('#hTxt').textContent=`${u.hour.used.toLocaleString('ru')} / ${u.hour.limit.toLocaleString('ru')}`;
+  $('#wTxt').textContent=`${u.week.used.toLocaleString('ru')} / ${u.week.limit.toLocaleString('ru')}`;
+  $('#models').innerHTML=S.models.map(m=>{const lock=RANK[u.plan]<RANK[m.plan];
+    return `<button class="model ${m.id===model?'on':''} ${lock?'lock':''}" data-id="${m.id}"><span><b>${m.name}</b>${m.plan!=='free'?`<span class="tag">${lock?'🔒 ':''}${S.plans[m.plan].name}</span>`:''}</span><small>${m.tagline}</small></button>`}).join('');
+  document.querySelectorAll('.model').forEach(b=>b.onclick=()=>pick(b.dataset.id));
+  const m=S.models.find(x=>x.id===model);$('#curName').textContent=m.name;$('#curTag').textContent=m.tagline;
+  $('#attach').style.display=m.features.vision?'':'none';$('#srch').style.display=m.features.search?'':'none';
+  $('#files').classList.toggle('show',m.features.code&&RANK[u.plan]>=RANK[m.plan]);
+  if(m.features.code)refreshFiles();
+  $('#hist').innerHTML=chats.map(c=>`<button class="${c===cur?'on':''}" data-i="${c.id}">${esc(c.title)}</button>`).join('');
+  document.querySelectorAll('#hist button').forEach(b=>b.onclick=()=>{cur=chats.find(c=>c.id==b.dataset.i);renderAll();paint();$('#side').classList.remove('open')});
+}
+function pick(id){const m=S.models.find(x=>x.id===id);
+  if(RANK[S.usage.plan]<RANK[m.plan]){openPlans(`${m.name} доступна с подпиской ${S.plans[m.plan].name}.`);return}
+  model=id;persist();paint();$('#side').classList.remove('open')}
+
+function renderAll(){
+  const box=$('#msgs');box.innerHTML='';
+  if(!cur||!cur.messages.length){box.innerHTML='<div class="hero"><h1>Jova</h1><p>Спрашивайте, что хотите. Я ищу в интернете, пишу код и объясняю.</p></div>';return}
+  cur.messages.forEach(m=>{const d=addMsg(m.role);d.innerHTML=m.role==='user'?esc(m.content):md(m.content);(m.media||[]).forEach(x=>d.append(mediaEl(x)))});
+  scrollDown();
+}
+function addMsg(role){const w=document.createElement('div');w.className='msg '+role;const b=document.createElement('div');b.className='b';w.append(b);
+  const hero=$('.hero');if(hero)hero.remove();$('#msgs').append(w);return b}
+function mediaEl(v){const [k,...r]=v.split(':'),val=r.join(':');
+  if(k==='VIDEO_URL'&&/^https?:/.test(val)){const e=document.createElement('video');e.controls=true;e.src=val;return e}
+  const e=document.createElement('img');e.src=k==='IMAGE_B64'?'data:image/png;base64,'+val:(/^https?:/.test(val)?val:'');return e}
+const scrollDown=()=>{const c=$('#chat');c.scrollTop=c.scrollHeight};
+function toast(t){const d=addMsg('assistant');d.innerHTML=`<span class="err">${esc(t)}</span>`}
+
+async function send(){
+  const text=$('#in').value.trim();if((!text&&!pics.length)||busy)return;
+  if(!cur){cur={id:Date.now(),title:text.slice(0,40)||'Фото',messages:[]};chats.unshift(cur)}
+  const um={role:'user',content:text,images:pics.slice()};
+  cur.messages.push({role:'user',content:text});$('#in').value='';pics=[];$('#thumbs').innerHTML='';autosize();
+  const ub=addMsg('user');ub.textContent=text||'(фото)';
+  const ab=addMsg('assistant');ab.classList.add('cursor');
+  const history=cur.messages.map((m,i)=>i===cur.messages.length-1?um:m);
+  let full='',queue='',net=false,media=[];busy=true;$('#send').disabled=true;
+  // «печатает клавиатурой»: символы выводятся по мере поступления, быстрее, если очередь растёт
+  const timer=setInterval(()=>{if(!queue)return;const n=Math.max(1,Math.ceil(queue.length/18));full+=queue.slice(0,n);queue=queue.slice(n);
+    ab.innerHTML=md(full);ab.classList.add('cursor');media.forEach(x=>ab.append(mediaEl(x)));scrollDown()},24);
+  const note=t=>{const e=document.createElement('div');e.className='tool';e.textContent=t;ab.before(e);return e};
+  try{
+    const r=await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({userId:uid,model,search,messages:history})});
+    const rd=r.body.getReader(),dec=new TextDecoder();let buf='',toolEl=null;
+    for(;;){const {done,value}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});
+      let i;while((i=buf.indexOf('\n\n'))>=0){const line=buf.slice(0,i);buf=buf.slice(i+2);if(!line.startsWith('data:'))continue;const ev=JSON.parse(line.slice(5));
+        if(ev.type==='text')queue+=ev.delta;
+        else if(ev.type==='tool'){const t={web_search:'🔎 Ищу: '+(ev.input.query||''),fetch_url:'📄 Читаю '+(ev.input.url||''),list_files:'📁 Смотрю проект',read_file:'📖 Читаю '+ev.input.path,write_file:'✏️ Пишу '+ev.input.path,generate_image:'🎨 Рисую',generate_video:'🎬 Снимаю видео'}[ev.name]||ev.name;toolEl=note(t)}
+        else if(ev.type==='file')refreshFiles(ev.path);
+        else if(ev.type==='media'){media.push(ev.value)}
+        else if(ev.type==='usage'){S.usage=ev.usage;paint()}
+        else if(ev.type==='error'){queue+=`\n\n<<ERR>>${ev.message}`;if(ev.code==='plan'||ev.code==='limit')setTimeout(()=>openPlans(ev.message),300)}}}
+  }catch(e){queue+='\n\n<<ERR>>'+e.message}
+  while(queue)await new Promise(r=>setTimeout(r,30));clearInterval(timer);
+  const [body,err]=full.split('\n\n<<ERR>>');ab.classList.remove('cursor');ab.innerHTML=md(body||'');media.forEach(x=>ab.append(mediaEl(x)));
+  if(err){const e=document.createElement('div');e.className='err';e.textContent=err;ab.append(e)}
+  cur.messages.push({role:'assistant',content:body||'',media});persist();busy=false;$('#send').disabled=false;paint();scrollDown();
+}
+async function refreshFiles(hl){const {files}=await (await fetch('/api/files')).json();
+  $('#tree').innerHTML=files.map(f=>`<button data-f="${esc(f)}" class="${f===hl?'new':''}">${esc(f)}</button>`).join('')||'<small style="color:var(--mut)">Пусто. Попросите Jova Code создать проект.</small>';
+  document.querySelectorAll('#tree button').forEach(b=>b.onclick=async()=>{const j=await (await fetch('/api/file?path='+encodeURIComponent(b.dataset.f))).json();$('#view').textContent=j.content});
+  if(hl){const j=await (await fetch('/api/file?path='+encodeURIComponent(hl))).json();$('#view').textContent=j.content}}
+function openPlans(msg){
+  const u=S.usage.plan,P=S.plans,info={free:['Jova 1.0 и 2.0','Поиск в интернете'],pro:['Всё из Free','Jova 3.0: фото, картинки, видео','Jova 4.0 и Jova Code'],max:['Всё из Pro','Jova 5.0','Самые большие лимиты']};
+  $('#plansBox').innerHTML=Object.keys(P).map(k=>`<div class="plan ${k===u?'cur':''}"><b>${P[k].name}</b><small>${P[k].hourly.toLocaleString('ru')} жетонов/час<br>${P[k].weekly.toLocaleString('ru')} жетонов/неделя</small><ul>${info[k].map(x=>`<li>${x}</li>`).join('')}</ul>${k===u?'<small>Текущий</small>':S.devUpgrade?`<button class="btn" onclick="setPlan('${k}')">Выбрать</button>`:''}</div>`).join('');
+  $('#payNote').textContent=(msg?msg+' ':'')+(S.devUpgrade?'Режим разработки: тариф переключается без оплаты.':'Оплата подписки пока не подключена.');
+  dlg.showModal()}
+async function setPlan(p){const r=await fetch('/api/plan',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({userId:uid,plan:p})});
+  if(r.ok){S.usage=(await r.json()).usage;dlg.close();paint()}}
+function autosize(){const t=$('#in');t.style.height='auto';t.style.height=Math.min(200,t.scrollHeight)+'px'}
+async function shrink(file){return new Promise(ok=>{const fr=new FileReader();fr.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,1280/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=im.width*k;c.height=im.height*k;c.getContext('2d').drawImage(im,0,0,c.width,c.height);ok(c.toDataURL('image/jpeg',.85))};im.src=fr.result};fr.readAsDataURL(file)})}
+$('#attach').onclick=()=>$('#file').click();
+$('#file').onchange=async e=>{for(const f of [...e.target.files].slice(0,4)){const d=await shrink(f);pics.push(d);const i=new Image();i.src=d;$('#thumbs').append(i)}e.target.value=''};
+$('#srch').onclick=()=>{search=!search;$('#srch').classList.toggle('on',search)};
+$('#send').onclick=send;$('#in').oninput=autosize;
+$('#in').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}};
+$('#new').onclick=()=>{cur=null;renderAll();paint();$('#side').classList.remove('open')};
+$('#plansBtn').onclick=()=>openPlans();$('#menu').onclick=()=>$('#side').classList.toggle('open');
+load().then(()=>{if(chats.length)cur=chats[0];renderAll();paint()});
+</script></body></html>
