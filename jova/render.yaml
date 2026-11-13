@@ -10,6 +10,12 @@ services:
         sync: false
       - key: TAVILY_API_KEY
         sync: false
+      - key: JOVA_OPENAI_BASE_URL
+        sync: false
+      - key: JOVA_OPENAI_KEY
+        sync: false
+      - key: JOVA_OAI_MODEL
+        sync: false
       - key: NODE_ENV
         value: production
     disk:

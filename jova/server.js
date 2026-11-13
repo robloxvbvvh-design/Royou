@@ -116,6 +116,86 @@ async function handleOwn(u, model, body, send) {
   charge(u, model, inTok, outTok); send({ type: 'usage', usage: usageOf(u) });
 }
 
+// ---------- какой «мозг» отвечает ----------
+// 1) ANTHROPIC_API_KEY — модели Claude;  2) JOVA_OPENAI_BASE_URL — любой OpenAI-совместимый сервис
+//    (Ollama на своём компьютере, Groq, OpenRouter, vLLM и т. д.);  3) иначе только своя маленькая модель для Jova 1.0.
+const OAI_BASE = (process.env.JOVA_OPENAI_BASE_URL || '').replace(/\/$/, '');
+const OAI_KEY = process.env.JOVA_OPENAI_KEY || '';
+const providerFor = (id) => API_KEY ? 'anthropic' : OAI_BASE ? 'openai' : (id === 'jova-1.0' && process.env.JOVA_OWN_URL) ? 'own' : null;
+const oaiModel = (id) => process.env['JOVA_OAI_MODEL_' + id.replace(/\W/g, '_').toUpperCase()] || process.env.JOVA_OAI_MODEL || '';
+
+async function execTool(name, input, tools, send) {
+  send({ type: 'tool', name, input });
+  let out, isErr = false;
+  try {
+    if (!tools.some(t => t.name === name)) throw new Error('инструмент недоступен для этой модели');
+    out = String(await DEFS[name].run(input));
+    if (name === 'write_file') send({ type: 'file', path: input.path });
+    if (/^(IMAGE_URL|IMAGE_B64|VIDEO_URL):/.test(out)) { send({ type: 'media', value: out }); out = 'Готово, медиа показано пользователю.'; }
+  } catch (e) { out = 'Ошибка: ' + e.message; isErr = true; }
+  send({ type: 'tool_done', name, error: isErr });
+  return { out: out.slice(0, 20000), isErr };
+}
+
+async function* streamOAI(body) {
+  const r = await fetch(OAI_BASE + '/chat/completions', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...(OAI_KEY ? { authorization: 'Bearer ' + OAI_KEY } : {}) },
+    body: JSON.stringify({ ...body, stream: true, stream_options: { include_usage: true } })
+  });
+  if (!r.ok) throw new Error('модель недоступна (' + r.status + '): ' + (await r.text()).slice(0, 300));
+  let buf = ''; const dec = new TextDecoder();
+  for await (const chunk of r.body) {
+    buf += dec.decode(chunk, { stream: true }); let i;
+    while ((i = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+      if (!line.startsWith('data:')) continue;
+      const d = line.slice(5).trim(); if (d === '[DONE]') return;
+      try { yield JSON.parse(d); } catch {}
+    }
+  }
+}
+
+async function chatOAI(u, model, body, send, isClosed) {
+  const mid = oaiModel(body.model);
+  if (!mid) throw new Error('не задана модель: переменная JOVA_OAI_MODEL (например, llama3.1 для Ollama)');
+  const tools = toolsFor(model, body.search !== false);
+  const oaiTools = tools.map(t => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.input_schema } }));
+  const messages = [{ role: 'system', content: systemPrompt(model) }, ...(body.messages || []).map(m => {
+    if (m.role === 'assistant') return { role: 'assistant', content: String(m.content || '') || '…' };
+    const imgs = (m.images || []).slice(0, 4).filter(d => /^data:image\/(png|jpeg|webp|gif);base64,/.test(d));
+    if (imgs.length && !model.features.vision) throw new Error(`${model.name} не умеет смотреть фото. Выберите Jova 3.0 или выше.`);
+    return { role: 'user', content: imgs.length ? [...imgs.map(url => ({ type: 'image_url', image_url: { url } })), { type: 'text', text: String(m.content || '(см. фото)') }] : String(m.content || '') };
+  })];
+  for (let step = 0; step < 10 && !isClosed(); step++) {
+    let text = '', finish = null, uIn = 0, uOut = 0; const calls = [];
+    const req = { model: mid, max_tokens: model.maxTokens, messages };
+    if (oaiTools.length) req.tools = oaiTools;
+    for await (const ev of streamOAI(req)) {
+      if (isClosed()) break;
+      if (ev.usage) { uIn = ev.usage.prompt_tokens || 0; uOut = ev.usage.completion_tokens || 0; }
+      const ch = ev.choices && ev.choices[0]; if (!ch) continue;
+      if (ch.delta && ch.delta.content) { text += ch.delta.content; send({ type: 'text', delta: ch.delta.content }); }
+      for (const tc of (ch.delta && ch.delta.tool_calls) || []) {
+        const c = calls[tc.index || 0] = calls[tc.index || 0] || { id: '', name: '', args: '' };
+        if (tc.id) c.id = tc.id; if (tc.function && tc.function.name) c.name += tc.function.name; if (tc.function && tc.function.arguments) c.args += tc.function.arguments;
+      }
+      if (ch.finish_reason) finish = ch.finish_reason;
+    }
+    if (!uIn && !uOut) { uIn = Math.ceil(JSON.stringify(messages).length / 3); uOut = Math.ceil(text.length / 3); }   // сервис не прислал usage: оценка
+    charge(u, model, uIn, uOut); send({ type: 'usage', usage: usageOf(u) });
+    const real = calls.filter(Boolean);
+    if (!real.length) break;
+    messages.push({ role: 'assistant', content: text || null, tool_calls: real.map(c => ({ id: c.id, type: 'function', function: { name: c.name, arguments: c.args || '{}' } })) });
+    for (const c of real) {
+      let input = {}; try { input = JSON.parse(c.args || '{}'); } catch {}
+      const { out } = await execTool(c.name, input, tools, send);
+      messages.push({ role: 'tool', tool_call_id: c.id, content: out });
+    }
+    if (limitHit(usageOf(u))) { send({ type: 'error', code: 'limit', message: 'Лимит исчерпан посреди задачи.' }); break; }
+  }
+}
+
 async function handleChat(req, res, body) {
   const send = (o) => res.write('data: ' + JSON.stringify(o) + '\n\n');
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
@@ -124,11 +204,13 @@ async function handleChat(req, res, body) {
     const u = getUser(body.userId); if (!u) throw new Error('неизвестный пользователь');
     const model = MODELS[body.model]; if (!model) throw new Error('неизвестная модель');
     if (PLAN_ORDER[u.plan] < PLAN_ORDER[model.plan]) throw Object.assign(new Error(`${model.name} доступна с подпиской ${PLANS[model.plan].name}`), { code: 'plan' });
-    if (model.provider !== 'own' && !API_KEY) throw new Error('на сервере не задан ANTHROPIC_API_KEY');
+    const prov = providerFor(body.model);
+    if (!prov) throw new Error('на сервере не подключена модель: задайте ANTHROPIC_API_KEY или JOVA_OPENAI_BASE_URL (см. README)');
     let usage = usageOf(u), hit = limitHit(usage);
     if (hit) throw Object.assign(new Error(hit === 'hour' ? `Часовой лимит исчерпан. Обновится через ${usage.hour.resetMin} мин.` : `Недельный лимит исчерпан. Обновится через ${Math.ceil(usage.week.resetMin / 60)} ч.`), { code: 'limit' });
 
-    if (model.provider === 'own') { await handleOwn(u, model, body, send); send({ type: 'done' }); return res.end(); }
+    if (prov === 'own') { await handleOwn(u, model, body, send); send({ type: 'done' }); return res.end(); }
+    if (prov === 'openai') { await chatOAI(u, model, body, send, () => closed); send({ type: 'done' }); return res.end(); }
     const messages = toApiMessages(body.messages || [], model);
     const tools = toolsFor(model, body.search !== false);
 
@@ -156,16 +238,8 @@ async function handleChat(req, res, body) {
       messages.push({ role: 'assistant', content });
       const results = [];
       for (const c of content.filter(c => c.type === 'tool_use')) {
-        send({ type: 'tool', name: c.name, input: c.input });
-        let out, isErr = false;
-        try {
-          if (!tools.some(t => t.name === c.name)) throw new Error('инструмент недоступен для этой модели');
-          out = String(await DEFS[c.name].run(c.input));
-          if (c.name === 'write_file') send({ type: 'file', path: c.input.path });
-          if (/^(IMAGE_URL|IMAGE_B64|VIDEO_URL):/.test(out)) { send({ type: 'media', value: out }); out = 'Готово, медиа показано пользователю.'; }
-        } catch (e) { out = 'Ошибка: ' + e.message; isErr = true; }
-        send({ type: 'tool_done', name: c.name, error: isErr });
-        results.push({ type: 'tool_result', tool_use_id: c.id, content: out.slice(0, 20000), is_error: isErr });
+        const { out, isErr } = await execTool(c.name, c.input, tools, send);
+        results.push({ type: 'tool_result', tool_use_id: c.id, content: out, is_error: isErr });
       }
       messages.push({ role: 'user', content: results });
       usage = usageOf(u);
@@ -204,7 +278,7 @@ http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/state') {
       const u = getUser(url.searchParams.get('user')); if (!u) return json(res, 400, { error: 'bad user' });
       return json(res, 200, {
-        usage: usageOf(u), ready: !!API_KEY, ownReady: !!process.env.JOVA_OWN_URL, devUpgrade: demoPay(), payments: pay.provider(),
+        usage: usageOf(u), ready: !!(API_KEY || OAI_BASE), ownReady: !!process.env.JOVA_OWN_URL, devUpgrade: demoPay(), payments: pay.provider(),
         models: Object.entries(MODELS).map(([id, m]) => ({ id, name: m.name, tagline: m.tagline, plan: m.plan, features: m.features })),
         plans: PLANS
       });
