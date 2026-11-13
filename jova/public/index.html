@@ -195,12 +195,14 @@ async function refreshFiles(hl){const {files}=await (await fetch('/api/files')).
   if(hl){const j=await (await fetch('/api/file?path='+encodeURIComponent(hl))).json();$('#view').textContent=j.content}}
 function openPlans(msg){
   const u=S.usage.plan,P=S.plans,info={free:['Jova 1.0 и 2.0','Поиск в интернете'],pro:['Всё из Free','Jova 3.0: фото, картинки, видео','Jova 4.0 и Jova Code'],max:['Всё из Pro','Jova 5.0','Самые большие лимиты']};
-  $('#plansBox').innerHTML=Object.keys(P).map(k=>`<div class="plan ${k===u?'cur':''}"><b>${P[k].name}</b><small>${P[k].hourly.toLocaleString('ru')} жетонов/час<br>${P[k].weekly.toLocaleString('ru')} жетонов/неделя</small><ul>${info[k].map(x=>`<li>${x}</li>`).join('')}</ul>${k===u?'<small>Текущий'+(S.usage.until&&k!=='free'?' · до '+new Date(S.usage.until).toLocaleDateString('ru'):'')+'</small>':k==='free'?'':S.payments?`<button class="btn" onclick="payPlan('${k}')">Оплатить ${P[k].price} ₽</button>`:S.devUpgrade?`<button class="btn" onclick="setPlan('${k}')">Выбрать (тест)</button>`:'<small>Оплата не подключена</small>'}</div>`).join('');
+  $('#plansBox').innerHTML=Object.keys(P).map(k=>`<div class="plan ${k===u?'cur':''}"><b>${P[k].name}</b><small>${P[k].hourly.toLocaleString('ru')} жетонов/час<br>${P[k].weekly.toLocaleString('ru')} жетонов/неделя</small><ul>${info[k].map(x=>`<li>${x}</li>`).join('')}</ul>${k===u?'<small>Текущий'+(S.usage.until&&k!=='free'?' · до '+new Date(S.usage.until).toLocaleDateString('ru'):'')+'</small>':k==='free'?'':`<b style="font-size:20px">${P[k].price} ₽ <small style="font-weight:400;color:var(--mut)">/ 30 дней</small></b><button class="btn" onclick="buy('${k}')">Оплатить подписку</button>`}</div>`).join('');
   $('#payNote').textContent=(msg?msg+' ':'')+(S.payments?'Оплата на 30 дней. После оплаты тариф включится сам.':S.devUpgrade?'Режим разработки: тариф переключается без оплаты.':'Оплата подписки пока не подключена.');
   dlg.showModal()}
-async function payPlan(p){const b=document.querySelector('.plan button.btn[onclick*="'+p+'"]');if(b){b.disabled=true;b.textContent='Открываю оплату…'}
+function buy(p){if(S.payments)return payPlan(p);if(S.devUpgrade)return setPlan(p);
+  $('#payNote').textContent='Оплата ещё не подключена: владельцу сайта нужно добавить ключи ЮKassa или Stripe.'}
+async function payPlan(p){const b=document.querySelector('.plan button.btn[onclick*="buy(\''+p+'"]');if(b){b.disabled=true;b.textContent='Открываю оплату…'}
   try{const r=await fetch('/api/checkout',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({userId:uid,plan:p})});const j=await r.json();
-    if(!r.ok)throw new Error(j.error||'ошибка');location.href=j.url}catch(e){$('#payNote').textContent='Не удалось начать оплату: '+e.message;if(b){b.disabled=false;b.textContent='Оплатить'}}}
+    if(!r.ok)throw new Error(j.error||'ошибка');location.href=j.url}catch(e){$('#payNote').textContent='Не удалось начать оплату: '+e.message;if(b){b.disabled=false;b.textContent='Оплатить подписку'}}}
 async function setPlan(p){const r=await fetch('/api/plan',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({userId:uid,plan:p})});
   if(r.ok){S.usage=(await r.json()).usage;dlg.close();paint()}}
 function autosize(){const t=$('#in');t.style.height='auto';t.style.height=Math.min(200,t.scrollHeight)+'px'}
