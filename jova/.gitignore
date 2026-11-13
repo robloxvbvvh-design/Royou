@@ -1,3 +1,4 @@
 data/users.json
 workspace/*
 !workspace/.gitkeep
+jova/web/pack.json
