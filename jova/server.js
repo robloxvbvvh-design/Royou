@@ -184,6 +184,8 @@ const readRaw = (req) => new Promise((ok, no) => {
   req.on('end', () => ok(s));
 });
 const readBody = async (req) => JSON.parse((await readRaw(req)) || '{}');
+// Режим «кнопка сразу включает тариф» (без настоящей оплаты): в разработке или при JOVA_DEMO_PAYMENTS=1, пока не подключён провайдер.
+const demoPay = () => !pay.provider() && (process.env.NODE_ENV !== 'production' || process.env.JOVA_DEMO_PAYMENTS === '1');
 function applyPaid(p) {
   const u = p && ['pro', 'max'].includes(p.plan) ? getUser(p.userId) : null;
   if (!u) return false;
@@ -202,7 +204,7 @@ http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/state') {
       const u = getUser(url.searchParams.get('user')); if (!u) return json(res, 400, { error: 'bad user' });
       return json(res, 200, {
-        usage: usageOf(u), ready: !!API_KEY, ownReady: !!process.env.JOVA_OWN_URL, devUpgrade: process.env.NODE_ENV !== 'production' && !pay.provider(), payments: pay.provider(),
+        usage: usageOf(u), ready: !!API_KEY, ownReady: !!process.env.JOVA_OWN_URL, devUpgrade: demoPay(), payments: pay.provider(),
         models: Object.entries(MODELS).map(([id, m]) => ({ id, name: m.name, tagline: m.tagline, plan: m.plan, features: m.features })),
         plans: PLANS
       });
@@ -224,10 +226,10 @@ http.createServer(async (req, res) => {
     }
     if (req.method === 'POST' && url.pathname === '/api/plan') {
       // Ручное переключение тарифа — только для разработки и только пока оплата не подключена.
-      if (process.env.NODE_ENV === 'production' || pay.provider()) return json(res, 403, { error: 'оплата не подключена' });
+      if (!demoPay()) return json(res, 403, { error: 'оплата не подключена' });
       const b = await readBody(req), u = getUser(b.userId);
       if (!u || !PLANS[b.plan]) return json(res, 400, { error: 'bad request' });
-      u.plan = b.plan; save(); return json(res, 200, { usage: usageOf(u) });
+      u.plan = b.plan; if (b.plan === 'free') delete u.until; else u.until = Date.now() + pay.DAYS * 864e5; save(); return json(res, 200, { usage: usageOf(u) });
     }
     if (req.method === 'GET' && url.pathname === '/api/files') return json(res, 200, { files: walk(WORKSPACE) });
     if (req.method === 'GET' && url.pathname === '/api/file') {

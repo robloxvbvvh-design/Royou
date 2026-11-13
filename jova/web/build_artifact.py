@@ -8,7 +8,7 @@ style = style.replace('#comp{padding:8px 12px calc', '#comp{padding:8px 16px cal
 body = src[src.index('<body>') + 6: src.index('<script>')]
 body = re.sub(r'<button class="btn ghost" id="install"[^>]*>.*?</button>', '', body, flags=re.S)
 app = src[src.index('<script>') + 8: src.rindex('</script>')]
-a, b = app.index('// установка на главный экран'), app.index('load().then(')
+a, b = app.index('// установка на главный экран'), app.index('const returned=')
 app = app[:a] + app[b:]
 pack = open(os.path.join(HERE, 'pack.json'), encoding='utf-8').read()
 eng = open(os.path.join(HERE, 'engine.js'), encoding='utf-8').read()

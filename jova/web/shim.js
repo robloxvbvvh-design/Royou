@@ -12,10 +12,11 @@
   const HOUR = 3600e3, WEEK = 7 * HOUR * 24;
   let usage = [];
   try { usage = JSON.parse(localStorage.jova_web_usage || '[]'); } catch {}
+  let plan = 'free'; try { plan = localStorage.jova_web_plan || 'free'; } catch {}
   const saveU = () => { try { localStorage.jova_web_usage = JSON.stringify(usage); } catch {} };
   const state = () => { const now = Date.now(); usage = usage.filter(e => now - e.t < WEEK);
     const sum = ms => usage.filter(e => now - e.t < ms).reduce((a, e) => a + e.c, 0);
-    return { plan: 'free', planName: 'Free', hour: { used: sum(HOUR), limit: PLANS.free.hourly, resetMin: 60 }, week: { used: sum(WEEK), limit: PLANS.free.weekly, resetMin: 10080 } }; };
+    return { plan, planName: PLANS[plan].name, until: plan === 'free' ? null : Date.now() + 30 * 864e5, hour: { used: sum(HOUR), limit: PLANS[plan].hourly, resetMin: 60 }, week: { used: sum(WEEK), limit: PLANS[plan].weekly, resetMin: 10080 } }; };
   const engine = JovaEngine(window.JOVA_PACK);
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const json = o => new Response(JSON.stringify(o), { headers: { 'content-type': 'application/json' } });
@@ -36,8 +37,9 @@
   }
   window.fetch = async (url, opts) => {
     const u = String(url);
-    if (u.startsWith('/api/state')) return json({ usage: state(), ready: false, ownReady: true, devUpgrade: false, models: MODELS, plans: PLANS });
+    if (u.startsWith('/api/state')) return json({ usage: state(), ready: false, ownReady: true, devUpgrade: true, models: MODELS, plans: PLANS });
     if (u.startsWith('/api/chat')) return chat(JSON.parse(opts.body));
+    if (u.startsWith('/api/plan')) { const b = JSON.parse(opts.body); if (!PLANS[b.plan]) return new Response('{}', { status: 400 }); plan = b.plan; try { localStorage.jova_web_plan = plan; } catch {} return json({ usage: state() }); }
     if (u.startsWith('/api/files')) return json({ files: [] });
     return new Response('{}', { status: 404 });
   };
