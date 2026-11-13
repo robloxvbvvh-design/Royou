@@ -53,6 +53,9 @@ main{flex:1;display:flex;flex-direction:column;min-width:0}
 dialog{background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:16px;max-width:720px;width:calc(100% - 32px)}
 dialog::backdrop{background:#000a}.plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:14px 0}
 .plan{border:1px solid var(--line);border-radius:12px;padding:12px;display:grid;gap:6px}.plan.cur{border-color:var(--acc)}.plan ul{margin:0;padding-left:18px;color:var(--mut);font-size:13px}
+.think{font:11px/1.5 ui-monospace,Menlo,monospace;color:var(--mut);border:1px dashed var(--line);border-radius:8px;padding:6px 10px;max-height:64px;overflow:hidden;word-break:break-all}
+.think b{color:var(--ok);font-weight:500;margin-right:6px}
+.src{font-size:12.5px;color:var(--mut);display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.src a{border:1px solid var(--line);border-radius:99px;padding:1px 10px;text-decoration:none;color:var(--mut)}
 @media (max-width:820px){#side{position:fixed;inset:0 25% 0 0;z-index:5;transform:translateX(-100%);transition:.2s}#side.open{transform:none}#menu{display:inline-block}#files.show{position:fixed;inset:0 0 0 20%;z-index:4}}
 </style></head><body>
 <aside id="side">
@@ -153,7 +156,7 @@ async function send(){
   const ub=addMsg('user');ub.textContent=text||'(фото)';
   const ab=addMsg('assistant');ab.classList.add('cursor');
   const history=cur.messages.map((m,i)=>i===cur.messages.length-1?um:m);
-  let full='',queue='',net=false,media=[];busy=true;$('#send').disabled=true;
+  let full='',queue='',net=false,media=[],thinkEl=null,srcs=[];busy=true;$('#send').disabled=true;
   // «печатает клавиатурой»: символы выводятся по мере поступления, быстрее, если очередь растёт
   const timer=setInterval(()=>{if(!queue)return;const n=Math.max(1,Math.ceil(queue.length/18));full+=queue.slice(0,n);queue=queue.slice(n);
     ab.innerHTML=md(full);ab.classList.add('cursor');media.forEach(x=>ab.append(mediaEl(x)));scrollDown()},24);
@@ -165,6 +168,8 @@ async function send(){
       let i;while((i=buf.indexOf('\n\n'))>=0){const line=buf.slice(0,i);buf=buf.slice(i+2);if(!line.startsWith('data:'))continue;const ev=JSON.parse(line.slice(5));
         if(ev.type==='text')queue+=ev.delta;
         else if(ev.type==='tool'){const t={web_search:'🔎 Ищу: '+(ev.input.query||''),fetch_url:'📄 Читаю '+(ev.input.url||''),list_files:'📁 Смотрю проект',read_file:'📖 Читаю '+ev.input.path,write_file:'✏️ Пишу '+ev.input.path,generate_image:'🎨 Рисую',generate_video:'🎬 Снимаю видео'}[ev.name]||ev.name;toolEl=note(t)}
+        else if(ev.type==='think'){if(!thinkEl){thinkEl=document.createElement('div');thinkEl.className='think';thinkEl.innerHTML='<b>думает цифрами</b><span></span>';ab.before(thinkEl)}thinkEl.lastChild.textContent+=ev.ids.join(' ')+' ';thinkEl.scrollTop=thinkEl.scrollHeight}
+        else if(ev.type==='sources'){srcs=ev.items}
         else if(ev.type==='file')refreshFiles(ev.path);
         else if(ev.type==='media'){media.push(ev.value)}
         else if(ev.type==='usage'){S.usage=ev.usage;paint()}
@@ -172,6 +177,8 @@ async function send(){
   }catch(e){queue+='\n\n<<ERR>>'+e.message}
   while(queue)await new Promise(r=>setTimeout(r,30));clearInterval(timer);
   const [body,err]=full.split('\n\n<<ERR>>');ab.classList.remove('cursor');ab.innerHTML=md(body||'');media.forEach(x=>ab.append(mediaEl(x)));
+  if(srcs.length){const d=document.createElement('div');d.className='src';srcs.forEach(s=>{if(!/^https?:/.test(s.url))return;const a=document.createElement('a');a.href=s.url;a.target='_blank';a.rel='noopener';a.textContent=(s.title||s.url).slice(0,40);d.append(a)});ab.append(d)}
+  if(thinkEl){thinkEl.style.maxHeight='22px';thinkEl.onclick=()=>thinkEl.style.maxHeight=thinkEl.style.maxHeight==='22px'?'200px':'22px'}
   if(err){const e=document.createElement('div');e.className='err';e.textContent=err;ab.append(e)}
   cur.messages.push({role:'assistant',content:body||'',media});persist();busy=false;$('#send').disabled=false;paint();scrollDown();
 }

@@ -7,7 +7,7 @@ const MODELS = {
     name: 'Jova 1.0', tagline: 'Базовая модель для повседневных задач',
     backend: env.JOVA_BACKEND_1 || 'claude-haiku-5-5', plan: 'free', weight: 1, maxTokens: 2048,
     provider: env.JOVA_OWN_URL ? 'own' : 'anthropic', // 'own' — собственная модель из ./own (без внешнего API)
-    features: { search: !env.JOVA_OWN_URL, vision: false, media: false, code: false },
+    features: { search: true, vision: false, media: false, code: false },
     style: 'Отвечай коротко и по делу. Ты для повседневных вопросов.'
   },
   'jova-2.0': {

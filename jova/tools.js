@@ -10,29 +10,44 @@ const stripHtml = (h) => h
   .replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
   .replace(/&quot;/g, '"').replace(/&#x27;|&#39;/g, "'").replace(/\s+/g, ' ').trim();
 
-async function webSearch({ query }) {
+// Структурированный поиск: [{title, url, snippet}]. Без ключа — HTML-выдача DuckDuckGo, с TAVILY_API_KEY — Tavily.
+async function searchResults(query, n = 6) {
   if (process.env.TAVILY_API_KEY) {
-    const r = await fetch('https://api.tavily.com/search', {
+    const r = await fetch(process.env.TAVILY_URL || 'https://api.tavily.com/search', {
       method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + process.env.TAVILY_API_KEY },
-      body: JSON.stringify({ query, max_results: 6 })
+      body: JSON.stringify({ query, max_results: n })
     });
     if (!r.ok) throw new Error('поиск недоступен: ' + r.status);
     const j = await r.json();
-    return (j.results || []).map(x => `${x.title}\n${x.url}\n${(x.content || '').slice(0, 400)}`).join('\n\n') || 'Ничего не найдено';
+    return (j.results || []).map(x => ({ title: x.title || '', url: x.url, snippet: (x.content || '').slice(0, 900) }));
   }
-  // Без ключа: HTML-выдача DuckDuckGo.
   const r = await fetch('https://html.duckduckgo.com/html/?q=' + encodeURIComponent(query), { headers: { 'user-agent': 'Mozilla/5.0 JovaBot' } });
   if (!r.ok) throw new Error('поиск недоступен: ' + r.status);
   const html = await r.text();
   const out = [];
   const re = /<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<a[^>]+class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g;
   let m;
-  while ((m = re.exec(html)) && out.length < 6) {
+  while ((m = re.exec(html)) && out.length < n) {
     let url = m[1];
     const u = /uddg=([^&]+)/.exec(url); if (u) url = decodeURIComponent(u[1]);
-    out.push(`${stripHtml(m[2])}\n${url}\n${stripHtml(m[3])}`);
+    out.push({ title: stripHtml(m[2]), url, snippet: stripHtml(m[3]) });
   }
-  return out.join('\n\n') || 'Ничего не найдено';
+  return out;
+}
+// Текст абзацев страницы (для «своей» модели, которой нужен подробный контекст).
+async function pageParagraphs(url) {
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 6000);
+  try {
+    const r = await fetch(url, { headers: { 'user-agent': 'Mozilla/5.0 JovaBot' }, signal: ctl.signal });
+    if (!r.ok) return '';
+    const html = await r.text(), ps = [];
+    for (const m of html.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)) { const x = stripHtml(m[1]); if (x.length > 60) ps.push(x); if (ps.join(' ').length > 2500) break; }
+    return ps.join(' ');
+  } catch { return ''; } finally { clearTimeout(t); }
+}
+async function webSearch({ query }) {
+  const res = await searchResults(query);
+  return res.map(x => `${x.title}\n${x.url}\n${x.snippet.slice(0, 400)}`).join('\n\n') || 'Ничего не найдено';
 }
 
 async function fetchUrl({ url }) {
@@ -114,4 +129,4 @@ function toolsFor(model, searchOn) {
   return names.map(n => ({ name: n, description: DEFS[n].description, input_schema: DEFS[n].schema }));
 }
 
-module.exports = { DEFS, toolsFor, WORKSPACE, walk };
+module.exports = { DEFS, toolsFor, WORKSPACE, walk, searchResults, pageParagraphs };
