@@ -1,0 +1,197 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8">
+<style>
+*{box-sizing:border-box;margin:0}
+html,body{width:1920px;height:1080px;background:#000;overflow:hidden;font-family:Inter,"Inter Display","Noto Sans",sans-serif}
+#stage{position:absolute;inset:0;overflow:hidden;background:#000}
+.scene{position:absolute;inset:0;overflow:hidden;will-change:transform;display:none;transform-origin:50% 50%}
+.t{position:absolute;left:0;width:1920px;text-align:center;font-weight:700;letter-spacing:-.035em;line-height:1;white-space:nowrap;opacity:0;perspective:1200px}
+.steam{position:absolute;border-radius:50%;filter:blur(26px);pointer-events:none}
+.cupbox{position:absolute;left:0;top:0;width:640px;height:768px;transform-origin:0 0}
+.card{position:absolute;width:420px;height:520px;border-radius:44px;background:#fff;box-shadow:0 40px 90px rgba(0,0,0,.18);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:34px;opacity:0}
+.card b{font-size:64px;letter-spacing:-.03em;color:#1d1d1f}
+.card svg{width:190px;height:190px;fill:none;stroke:#d4112b;stroke-width:6;stroke-linecap:round;stroke-linejoin:round}
+#flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:9}
+#cap{position:absolute;bottom:34px;left:0;width:1920px;text-align:center;font-size:20px;color:#fff;opacity:0;letter-spacing:.02em;z-index:10}
+</style></head><body>
+<div id="stage">
+ <div class="scene" id="s1" style="background:#000">
+   <div class="t" id="s1a" style="top:400px;font-size:230px;color:#f5f5f7">Голод.</div>
+   <div class="t" id="s1b" style="top:660px;font-size:70px;font-weight:500;color:#86868b;letter-spacing:-.02em">Знакомо?</div>
+ </div>
+ <div class="scene" id="s2" style="background:radial-gradient(ellipse at 50% 85%,#e0112f 0%,#8f0a1d 45%,#1a0003 100%)">
+   <div class="t" id="s2a" style="top:95px;font-size:170px;color:#fff">Кипяток.</div>
+   <div class="t" id="s2b" style="top:285px;font-size:76px;font-weight:500;color:#ffd7dc;letter-spacing:-.02em">Три минуты.</div>
+   <div class="cupbox" id="cup2"></div>
+ </div>
+ <div class="scene" id="s3" style="background:radial-gradient(ellipse at 50% 120%,#5a1a00 0%,#1b0700 55%,#000 100%)">
+   <svg id="noodles" width="1920" height="1080" style="position:absolute;inset:0"></svg>
+   <div class="t" id="s3a" style="top:110px;font-size:80px;font-weight:500;color:#ffd23f;letter-spacing:-.02em">Тянется.</div>
+   <div class="t" id="w1" style="top:380px;font-size:260px;color:#fff;text-shadow:0 10px 60px rgba(0,0,0,.6)">Быстро.</div>
+   <div class="t" id="w2" style="top:380px;font-size:260px;color:#fff;text-shadow:0 10px 60px rgba(0,0,0,.6)">Горячо.</div>
+   <div class="t" id="w3" style="top:380px;font-size:260px;color:#ffd23f;text-shadow:0 10px 60px rgba(0,0,0,.6)">Своё.</div>
+ </div>
+ <div class="scene" id="s4" style="background:#f5f5f7">
+   <div class="t" id="s4a" style="top:110px;font-size:150px;color:#1d1d1f">Просто.</div>
+   <div class="card" id="c1" style="left:215px;top:370px"><svg viewBox="0 0 100 100"><path d="M50 14C34 36 24 50 24 64a26 26 0 0 0 52 0C76 50 66 36 50 14z"/></svg><b>Залей.</b></div>
+   <div class="card" id="c2" style="left:750px;top:370px"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="34"/><path id="hand" d="M50 50V26"/><path d="M50 50 66 58"/></svg><b>Подожди.</b></div>
+   <div class="card" id="c3" style="left:1285px;top:370px"><svg viewBox="0 0 100 100"><path d="M34 14v26a8 8 0 0 0 16 0V14M42 14v72M66 14c-10 8-12 26-6 40h6v32"/></svg><b>Ешь.</b></div>
+ </div>
+ <div class="scene" id="s5" style="background:radial-gradient(ellipse at 50% 45%,#5a0510 0%,#1a0003 50%,#000 85%)">
+   <div class="t" id="s5w" style="top:64px;font-size:34px;font-weight:600;letter-spacing:.5em;color:#ffd23f">ДОШИРАК</div>
+   <div class="cupbox" id="cup5"></div>
+   <div class="t" id="s5a" style="top:610px;font-size:120px;color:#f5f5f7">Лучшая еда.</div>
+   <div class="t" id="s5b" style="top:770px;font-size:215px;color:#ffd23f;text-shadow:0 0 90px rgba(255,80,40,.55)">Бич-пакет.</div>
+ </div>
+ <div id="flash"></div>
+ <div id="cap">Неофициальный фан-ролик. Не является рекламой производителя.</div>
+</div>
+<script>
+const TR=[[3.0,3.9],[8.3,9.2],[14.0,14.9],[19.6,20.5]], END=27.0;
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const prog=(t,a,b)=>clamp((t-a)/(b-a));
+const eio=p=>p<.5?4*p*p*p:1-Math.pow(-2*p+2,3)/2;
+const eox=p=>p>=1?1:1-Math.pow(2,-10*p);
+const eob=p=>{const c=1.5,d=c+1;return 1+d*Math.pow(p-1,3)+c*Math.pow(p-1,2)};
+const $=id=>document.getElementById(id);
+const NS='http://www.w3.org/2000/svg';
+function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e}
+
+/* ---------- cup (pseudo-3D cylinder) ---------- */
+const CX=320, TOPY=150, BOTY=560, TOPR=190, BOTR=132;
+const Rat=y=>TOPR+(BOTR-TOPR)*((y-TOPY)/(BOTY-TOPY));
+function buildCup(box,id){
+  const svg=el('svg',{width:640,height:768,viewBox:'0 0 640 768'},box);
+  const defs=el('defs',{},svg);
+  const g1=el('linearGradient',{id:'bd'+id,x1:0,x2:1,y1:0,y2:0},defs);
+  [[0,'#a30a1f'],[.25,'#e8142f'],[.55,'#d4112b'],[1,'#7a0716']].forEach(([o,c])=>el('stop',{offset:o,'stop-color':c},g1));
+  const g2=el('linearGradient',{id:'sh'+id,x1:0,x2:1,y1:0,y2:0},defs);
+  [[0,.55],[.18,0],[.62,0],[1,.7]].forEach(([o,a])=>el('stop',{offset:o,'stop-color':'#000','stop-opacity':a},g2));
+  const g3=el('linearGradient',{id:'sp'+id,x1:0,x2:1,y1:0,y2:0},defs);
+  [[0,0],[.5,.5],[1,0]].forEach(([o,a])=>el('stop',{offset:o,'stop-color':'#fff','stop-opacity':a},g3));
+  const body=`M${CX-TOPR},${TOPY} L${CX-BOTR},${BOTY} Q${CX},${BOTY+36} ${CX+BOTR},${BOTY} L${CX+TOPR},${TOPY} Z`;
+  const cp=el('clipPath',{id:'cp'+id},defs); el('path',{d:body},cp);
+  el('ellipse',{cx:CX,cy:BOTY+26,rx:BOTR+26,ry:22,fill:'#000','fill-opacity':.45,filter:''},svg);
+  el('path',{d:body,fill:`url(#bd${id})`},svg);
+  const band=el('g',{'clip-path':`url(#cp${id})`},svg);
+  el('rect',{x:0,y:300,width:640,height:120,fill:'#ffd23f'},band);
+  el('rect',{x:0,y:292,width:640,height:8,fill:'#fff','fill-opacity':.9},band);
+  el('rect',{x:0,y:420,width:640,height:8,fill:'#fff','fill-opacity':.9},band);
+  const items=[];
+  for(let k=0;k<5;k++){
+    const g=el('g',{},band);
+    if(k===0){el('text',{x:0,y:376,'text-anchor':'middle','font-family':'Inter','font-weight':800,'font-size':50,'letter-spacing':'-1',fill:'#8f0a1d'},g).textContent='Доширак'}
+    else if(k===1){el('circle',{cx:0,cy:360,r:30,fill:'#d4112b'},g);el('circle',{cx:0,cy:360,r:12,fill:'#ffd23f'},g)}
+    else if(k===2){el('path',{d:'M-40 372q20-34 40 0t40 0',stroke:'#d4112b','stroke-width':10,fill:'none','stroke-linecap':'round'},g)}
+    else if(k===3){el('path',{d:'M0 330l28 30-28 30-28-30z',fill:'#8f0a1d'},g)}
+    else {el('path',{d:'M-34 392h68M-24 392q0-40 24-50 24 10 24 50',fill:'none',stroke:'#d4112b','stroke-width':9,'stroke-linecap':'round','stroke-linejoin':'round'},g)}
+    items.push(g);
+  }
+  const up=el('g',{'clip-path':`url(#cp${id})`},svg);
+  const up2=[];
+  for(let k=0;k<5;k++){const g=el('g',{},up);el('circle',{cx:0,cy:220,r:14,fill:'#fff','fill-opacity':.85},g);up2.push(g)}
+  el('path',{d:body,fill:`url(#sh${id})`},svg);
+  el('rect',{x:CX-TOPR+50,y:TOPY,width:26,height:BOTY-TOPY,fill:`url(#sp${id})`,'clip-path':`url(#cp${id})`,transform:'skewX(-6)'},svg);
+  // lid
+  el('ellipse',{cx:CX,cy:TOPY,rx:TOPR+10,ry:30,fill:'#efe3c8'},svg);
+  el('ellipse',{cx:CX,cy:TOPY+4,rx:TOPR-8,ry:22,fill:'#cdbb97'},svg);
+  el('path',{d:`M${CX+30},${TOPY+14} q120,-10 150,-72 q10,-26 -4,-40 q-14,70 -146,90z`,fill:'#fbf3df',stroke:'#d9c7a0','stroke-width':2},svg);
+  el('ellipse',{cx:CX,cy:TOPY,rx:TOPR+10,ry:30,fill:'none',stroke:'#fff','stroke-opacity':.6,'stroke-width':3},svg);
+  return {items,up2,svg};
+}
+function spinCup(c,th){
+  c.items.forEach((g,k)=>{const a=th+k*Math.PI*2/5,cs=Math.cos(a),sn=Math.sin(a);
+    if(cs<=0.04){g.setAttribute('display','none');return}
+    g.setAttribute('display','inline');
+    g.setAttribute('transform',`translate(${CX+Rat(360)*sn*1.0},0) scale(${cs.toFixed(4)},1)`)});
+  c.up2.forEach((g,k)=>{const a=th+k*Math.PI*2/5+.6,cs=Math.cos(a),sn=Math.sin(a);
+    if(cs<=0.04){g.setAttribute('display','none');return}
+    g.setAttribute('display','inline');
+    g.setAttribute('transform',`translate(${CX+Rat(220)*sn},0) scale(${cs.toFixed(4)},1)`)});
+}
+const cupA=buildCup($('cup2'),'a'), cupB=buildCup($('cup5'),'b');
+
+/* ---------- steam ---------- */
+function makeSteam(scene,n,cls){const a=[];for(let i=0;i<n;i++){const d=document.createElement('div');d.className='steam';scene.insertBefore(d,scene.firstChild);a.push(d)}return a}
+function stepSteam(a,t,x0,y0,spread,h,col,size,k=1){
+  a.forEach((d,i)=>{const ph=((t*0.12*k+i/a.length)%1), y=y0-ph*h, x=x0+(i%2?1:-1)*(10+(i*37)%spread)*(0.4+ph)+Math.sin(t*.9+i*1.7)*28*ph;
+    const o=Math.sin(ph*Math.PI)*0.5, s=size*(0.6+ph*1.1);
+    d.style.cssText=`left:${x-s/2}px;top:${y-s/2}px;width:${s}px;height:${s}px;background:${col};opacity:${o.toFixed(3)}`})
+}
+const st1=makeSteam($('s1'),16), st2=makeSteam($('s2'),14), st5=makeSteam($('s5'),14);
+
+/* ---------- noodles ---------- */
+const noo=$('noodles'); const lines=[];
+for(let i=0;i<16;i++){
+  const y0=640+i*26, amp=26+(i%5)*10, f=.006+(i%4)*.0016, ph=i*.9;
+  let d='M-20 '+y0; for(let x=-20;x<=1940;x+=20){d+=` L${x} ${(y0+Math.sin(x*f+ph)*amp+Math.sin(x*f*2.3+ph*1.3)*amp*.35).toFixed(1)}`}
+  const p=el('path',{d,fill:'none',stroke:i%3?'#f6c744':'#ffe38a','stroke-width':16-(i%3)*2,'stroke-linecap':'round','stroke-opacity':.9},noo);
+  const L=p.getTotalLength(); p.style.strokeDasharray=L; p.style.strokeDashoffset=L; lines.push([p,L,i]);
+}
+
+/* ---------- helpers ---------- */
+function show(id,t,a,dur=0.8,rise=50){const e=$(id),p=eox(prog(t,a,a+dur));
+  e.style.opacity=p;e.style.transform=`translateY(${rise*(1-p)}px) rotateX(${70*(1-p)}deg) scale(${.92+.08*p})`;e.style.filter=`blur(${14*(1-p)}px)`}
+function hide(id,t,a,dur=.35){const e=$(id);const p=prog(t,a,a+dur);if(p>0){e.style.opacity=Math.min(+e.style.opacity||0,1-p)}}
+function swap(id,t,a,b){ // appears at a, disappears at b with 3d out
+  const e=$(id);const pi=eox(prog(t,a,a+.55)),po=eio(prog(t,b,b+.4));
+  const v=pi*(1-po);e.style.opacity=v;
+  e.style.transform=`translateY(${60*(1-pi)-70*po}px) rotateX(${75*(1-pi)-50*po}deg) scale(${(.86+.14*pi)*(1+.08*po)})`;
+  e.style.filter=`blur(${16*(1-pi)+16*po}px)`}
+
+/* ---------- scene timeline ---------- */
+const S=['s1','s2','s3','s4','s5'].map($);
+const D=[960,540,960,0,0];
+function render(t){
+  // base visibility
+  const rng=[[0,TR[0][1]],[TR[0][0],TR[1][1]],[TR[1][0],TR[2][1]],[TR[2][0],TR[3][1]],[TR[3][0],END]];
+  S.forEach((s,i)=>{const on=t>=rng[i][0]&&t<=rng[i][1];s.style.display=on?'block':'none';s.style.transform='none';s.style.filter='none';s.style.opacity=1;s.style.zIndex=1});
+  $('flash').style.opacity=0;
+  TR.forEach(([a,b],k)=>{
+    if(t<a||t>b)return;
+    const p=eio(prog(t,a,b)),o=S[k],n=S[k+1],dim=(1-.55*Math.sin(Math.PI*p)).toFixed(3);
+    o.style.filter=n.style.filter=`brightness(${dim})`;
+    if(k===0){o.style.transform=`perspective(2600px) translateZ(-960px) rotateY(${-90*p}deg) translateZ(960px)`;n.style.transform=`perspective(2600px) translateZ(-960px) rotateY(${90*(1-p)}deg) translateZ(960px)`}
+    if(k===1){o.style.transform=`perspective(2600px) translateZ(-540px) rotateX(${90*p}deg) translateZ(540px)`;n.style.transform=`perspective(2600px) translateZ(-540px) rotateX(${-90*(1-p)}deg) translateZ(540px)`}
+    if(k===2){o.style.transform=`perspective(2600px) translateZ(-960px) rotateY(${90*p}deg) translateZ(960px)`;n.style.transform=`perspective(2600px) translateZ(-960px) rotateY(${-90*(1-p)}deg) translateZ(960px)`}
+    if(k===3){o.style.transform=`scale(${1+2.2*p}) rotate(${-4*p}deg)`;o.style.opacity=1-p;o.style.filter=`blur(${18*p}px)`;
+      n.style.transform=`scale(${.55+.45*eox(p)})`;n.style.opacity=p;n.style.zIndex=2;n.style.filter=`blur(${10*(1-p)}px)`;
+      $('flash').style.opacity=.9*Math.max(0,1-Math.abs(p-.55)*4)}
+  });
+
+  // S1
+  stepSteam(st1,t,960,980,200,780,'rgba(255,255,255,.55)',150);
+  show('s1a',t,.7,1.0,60); show('s1b',t,1.9,.8,30);
+  // S2
+  {const e=eox(prog(t,3.5,5.0)); const bob=Math.sin(t*1.1)*10;
+   const c=$('cup2'); const k=1.2; c.style.transform=`translate(${960-320*k}px,${450-120*k+(1-e)*520+bob}px) scale(${k}) translate(320px,384px) rotate(${(1-e)*-14}deg) translate(-320px,-384px)`;
+   spinCup(cupA,Math.sin(t*.8)*.85+ (1-e)*2.0);
+   stepSteam(st2,t,960,480,120,130,'rgba(255,255,255,.7)',110,1.4);
+   show('s2a',t,4.4,.9,50); show('s2b',t,5.9,.8,30);
+   const flick=$('s2'); }
+  // S3
+  lines.forEach(([p,L,i])=>{const q=eio(prog(t,9.0+i*.04,10.6+i*.04));p.style.strokeDashoffset=L*(1-q)});
+  {const dr=(t-9)*60;lines.forEach(([p,L,i])=>{p.style.transform=`translateX(${-(dr%40)*(i%2?1:-1)*0.6}px)`})}
+  show('s3a',t,9.2,.7,30);
+  swap('w1',t,10.5,11.6); swap('w2',t,11.6,12.7); swap('w3',t,12.7,14.4);
+  // S4
+  show('s4a',t,14.9,.9,50);
+  [['c1',16.0],['c2',16.9],['c3',17.8]].forEach(([id,a],i)=>{const q=eob(prog(t,a,a+.9)),o=prog(t,a,a+.4);const e=$(id);
+    e.style.opacity=o;e.style.transform=`perspective(1400px) translateY(${(1-q)*260}px) rotateX(${(1-q)*-50}deg) rotateY(${(1-q)*(i-1)*40+Math.sin(t*.9+i)*3}deg) scale(${.7+.3*q})`});
+  $('hand').setAttribute('transform',`rotate(${(t-16.9)*360/2.5} 50 50)`);
+  // S5
+  {const e=eox(prog(t,20.4,22.4)), mv=eio(prog(t,22.2,23.3));
+   const sc=1.5-.8*mv, topY=150+20*mv+(1-e)*560+Math.sin(t)*6;
+   $('cup5').style.transform=`translate(${960-320*sc}px,${topY-120*sc}px) scale(${sc}) translate(320px,384px) rotate(${(1-e)*10}deg) translate(-320px,-384px)`;
+   spinCup(cupB,(t-20.4)*(1.7-1.1*mv)+ (1-e)*3);
+   stepSteam(st5,t,960,topY-10,120,180+120*(1-mv),'rgba(255,230,210,.7)',110,1.2);
+   show('s5w',t,22.6,.9,20); show('s5a',t,23.3,.9,60);
+   const q=eob(prog(t,24.6,25.4)); const b=$('s5b'); b.style.opacity=prog(t,24.6,24.8);
+   b.style.transform=`perspective(1400px) scale(${.5+.5*q}) rotateX(${(1-q)*80}deg)`; b.style.filter=`blur(${12*(1-eox(prog(t,24.6,25.2)))}px)`;
+   const sh=Math.max(0,1-(t-24.6)*5); document.getElementById('s5').style.transform=(t>=24.6&&sh>0)?`translate(${Math.sin(t*90)*14*sh}px,${Math.cos(t*80)*10*sh}px)`:'none';
+   const cap=$('cap'); cap.style.opacity=t>20.6?.55*prog(t,25.0,25.8):0; cap.style.display=t>=20.5?'block':'none';}
+  $('cap').style.zIndex=10;
+  // final fade
+  document.getElementById('stage').style.opacity=1-prog(t,26.5,27.0);
+}
+render(0);
+</script></body></html>
