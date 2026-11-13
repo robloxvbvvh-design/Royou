@@ -52,6 +52,7 @@ header{display:flex;align-items:center;gap:8px;padding:12px 16px}
 .msg.bot.thinking .avatar{animation:spin 1.2s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .body p{margin:0 0 12px}
+.body small{font-size:12px}
 .body pre{background:var(--card);border-radius:12px;padding:14px;overflow:auto;font-size:14px}
 .body code{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--card);padding:1px 5px;border-radius:5px;font-size:.9em}
 .body pre code{background:none;padding:0}
@@ -102,7 +103,7 @@ dialog input{width:100%;padding:12px 14px;border-radius:12px;border:1px solid va
   <header>
     <button class="icon-btn" id="menu" title="Меню">☰</button>
     <span class="brand">Royou</span>
-    <span class="pill" id="modeLabel">Демо-режим</span>
+    <span class="pill" id="modeLabel">Royou Mini</span>
   </header>
 
   <div class="scroll" id="scroll">
@@ -134,7 +135,7 @@ dialog input{width:100%;padding:12px 14px;border-radius:12px;border:1px solid va
 
 <dialog id="dlg">
   <h3>Настройки</h3>
-  <p>Чтобы Royou отвечал настоящей нейросетью, вставьте API-ключ Google Gemini (получить бесплатно: aistudio.google.com/apikey). Ключ хранится только в вашем браузере. Без ключа работает демо-режим.</p>
+  <p>Чтобы Royou отвечал настоящей нейросетью, вставьте API-ключ Google Gemini (получить бесплатно: aistudio.google.com/apikey). Ключ хранится только в вашем браузере. Без ключа отвечает Royou Mini — собственная нейросеть, обученная прямо в браузере.</p>
   <input id="key" type="password" placeholder="API-ключ Gemini" autocomplete="off">
   <div class="dlg-actions">
     <button class="btn" id="cancel">Отмена</button>
@@ -168,14 +169,14 @@ $('#menu').onclick = $('#menu2').onclick = toggleSide;
 
 // settings
 const dlg=$('#dlg');
-const updateMode = () => $('#modeLabel').textContent = store.get('royou_key','') ? 'Gemini API' : 'Демо-режим';
+const updateMode = () => $('#modeLabel').textContent = store.get('royou_key','') ? 'Gemini API' : 'Royou Mini';
 $('#settingsBtn').onclick = () => { $('#key').value = store.get('royou_key',''); dlg.showModal(); };
 $('#cancel').onclick = () => dlg.close();
 $('#save').onclick = () => { store.set('royou_key', $('#key').value.trim()); updateMode(); dlg.close(); };
 updateMode();
 
 // markdown-lite
-const esc = s => s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const esc = s => s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])).replace(/&lt;small&gt;([^&]*)&lt;\/small&gt;/g,'<small style="color:var(--muted)">$1</small>');
 function md(src){
   const blocks=[];
   src = esc(src).replace(/```(\w*)\n([\s\S]*?)(```|$)/g,(_,l,c)=>{blocks.push(`<pre><code>${c.replace(/\n$/,'')}</code></pre>`);return `\u0000${blocks.length-1}\u0000`});
@@ -258,16 +259,144 @@ async function* geminiStream(history,key){
     }
   }
 }
-async function* demoStream(q){
-  const l=q.toLowerCase();
-  let r;
-  if(/привет|здравств|hello|hi\b/.test(l)) r='Привет! 👋 Я **Royou** — нейросеть в стиле Gemini. Сейчас я работаю в демо-режиме. Подключите API-ключ в **Настройках**, и я начну отвечать по-настоящему.';
-  else if(/python|код|функци/.test(l)) r='Вот пример на Python:\n\n```python\ndef is_palindrome(s: str) -> bool:\n    t = "".join(c.lower() for c in s if c.isalnum())\n    return t == t[::-1]\n\nprint(is_palindrome("А роза упала на лапу Азора"))  # True\n```\n\nФункция убирает всё, кроме букв и цифр, и сравнивает строку с её разворотом.';
-  else if(/нейросет/.test(l)) r='Нейросеть — это набор простых вычислительных «нейронов», собранных в слои:\n\n1. **Вход** получает данные (текст, картинку).\n2. **Скрытые слои** умножают значения на веса и преобразуют их.\n3. **Выход** выдаёт ответ.\n\nПри обучении веса подстраиваются так, чтобы ошибка становилась меньше. Так сеть *учится* на примерах.';
-  else if(/тренировк|план/.test(l)) r='Простой план на неделю:\n\n- **Пн** — ходьба или лёгкий бег 30 минут\n- **Вт** — отжимания, приседания, планка\n- **Ср** — отдых и растяжка\n- **Чт** — интервалы: 1 мин быстро / 2 мин спокойно ×8\n- **Пт** — силовая на всё тело\n- **Сб** — прогулка или велосипед\n- **Вс** — отдых';
-  else if(/идей|стартап/.test(l)) r='Идеи для ИИ-стартапа:\n\n1. Персональный репетитор по любому предмету\n2. Ассистент для разбора договоров\n3. Генератор рецептов по содержимому холодильника\n4. ИИ-редактор видео по текстовому описанию\n5. Помощник для поддержки клиентов малого бизнеса';
-  else r=`Вы спросили: «${q}».\n\nЯ сейчас в **демо-режиме** и отвечаю шаблонами. Откройте ⚙️ **Настройки** и вставьте API-ключ Gemini, чтобы получать полноценные ответы нейросети.`;
-  for(let i=0;i<r.length;i+=3){ await new Promise(s=>setTimeout(s,18)); yield r.slice(i,i+3); }
+// ===== Royou Mini: своя нейросеть, обучается прямо в браузере =====
+// Архитектура: хэшированные символьные n-граммы -> скрытый слой (tanh) -> softmax по намерениям.
+// Написана с нуля, без библиотек: прямой проход, обратное распространение, Adam.
+const Brain = (() => {
+  const D = 1024, H = 48;
+  const DATA = {
+    greet:["привет","здравствуй","здравствуйте","добрый день","добрый вечер","доброе утро","хай","салют","приветик","hello","hi","приветствую","йоу","ку"],
+    bye:["пока","до свидания","до встречи","увидимся","всего доброго","прощай","bye","спокойной ночи","я пошёл","мне пора"],
+    thanks:["спасибо","благодарю","спасибо большое","thanks","ты мне помог","круто спасибо","огромное спасибо","сенкс","респект"],
+    how:["как дела","как ты","как поживаешь","как жизнь","как настроение","что нового","как сам","ты как","как у тебя дела"],
+    who:["кто ты","как тебя зовут","ты кто","что ты такое","представься","ты человек","ты робот","как тебя называть","твоё имя"],
+    can:["что ты умеешь","что можешь","чем можешь помочь","твои возможности","help","помощь","какие у тебя функции","что ты можешь делать","помоги мне","чем ты полезен"],
+    joke:["расскажи анекдот","пошути","расскажи шутку","рассмеши меня","хочу посмеяться","анекдот","что-нибудь смешное","шутка"],
+    nn:["как работает нейросеть","объясни нейросеть","что такое нейросеть","что такое искусственный интеллект","как учится ии","объясни машинное обучение","что такое глубокое обучение","как устроен ии","расскажи про нейронные сети","что такое нейрон"],
+    code:["напиши функцию на python","напиши код","палиндром python","код на питоне","как написать функцию проверки палиндрома","пример кода","напиши программу","помоги с кодом","функция python","программирование пример"],
+    sport:["план тренировок","составь тренировку","как накачаться","упражнения для начинающих","хочу заняться спортом","тренировка на неделю","как похудеть","программа тренировок","что делать в зале","зарядка"],
+    startup:["идеи для стартапа","придумай бизнес идею","какой стартап открыть","идеи для проекта","как заработать на ии","придумай идею","идея для бизнеса","что запустить"],
+    time:["который час","сколько времени","какое сегодня число","какая сегодня дата","какой сегодня день","время сейчас","текущее время","дата сегодня"],
+    weather:["какая погода","погода на завтра","будет ли дождь","сколько градусов","погода сегодня","холодно на улице","прогноз погоды"],
+    sad:["мне грустно","мне плохо","я устал","мне одиноко","у меня плохое настроение","всё надоело","я расстроен","тяжёлый день","мне тревожно"],
+    praise:["ты молодец","ты умный","отлично","ты крутой","классно","хорошая работа","мне нравится","ты лучший","супер","браво"],
+    insult:["ты тупой","ты глупый","плохо отвечаешь","ты бесполезный","ерунда","чушь","ты ничего не умеешь"],
+    name_get:["как меня зовут","ты помнишь моё имя","какое у меня имя","знаешь как меня зовут"],
+  };
+  const R = {
+    greet:["Привет! 👋 Я Royou Mini — маленькая нейросеть, которая работает прямо у вас в браузере. О чём поговорим?","Здравствуйте! Рад вас видеть. Чем помочь?"],
+    bye:["Пока! Заходите ещё 👋","До встречи! Хорошего дня."],
+    thanks:["Пожалуйста! Обращайтесь 😊","Рад помочь!"],
+    how:["Отлично, насколько это возможно для набора весов 😄 А у вас как?","Всё хорошо: гоняю числа по слоям. Как ваши дела?"],
+    who:["Я **Royou Mini** — собственная нейросеть этого сайта. Я обучаюсь на странице за пару секунд, и никакие внешние сервисы мне не нужны."],
+    can:["Вот что я умею:\n\n- болтать на базовые темы и узнавать ваши намерения\n- считать: напишите `2+2*3` или `посчитай (15+5)/4`\n- запоминать имя: «меня зовут Анна»\n- говорить время и дату\n- объяснять, как работает нейросеть\n- показывать пример кода и план тренировок\n- рассказывать шутки\n\nДля сложных вопросов подключите большую модель в ⚙️ Настройках."],
+    joke:["Почему нейросеть не любит играть в прятки? Её всегда находят по градиенту 😄","— Сколько программистов нужно, чтобы вкрутить лампочку?\n— Ни одного, это аппаратная проблема.","Обучил нейросеть шутить. Теперь она переобучилась: смеётся только над тренировочной выборкой."],
+    nn:["Нейросеть — это слои простых «нейронов»:\n\n1. **Вход** получает числа (слова, пиксели).\n2. **Скрытые слои** умножают их на веса и применяют нелинейность.\n3. **Выход** даёт ответ, например вероятности вариантов.\n\nПри обучении веса подстраиваются методом обратного распространения ошибки, чтобы ошибка уменьшалась. Кстати, именно так сейчас думаю я: у меня "+"{params}"+" весов."],
+    code:["Пример на Python:\n\n```python\ndef is_palindrome(s: str) -> bool:\n    t = \"\".join(c.lower() for c in s if c.isalnum())\n    return t == t[::-1]\n\nprint(is_palindrome(\"А роза упала на лапу Азора\"))  # True\n```\n\nФункция оставляет только буквы и цифры и сравнивает строку с её разворотом."],
+    sport:["Простой план на неделю:\n\n- **Пн** — ходьба или лёгкий бег 30 минут\n- **Вт** — отжимания, приседания, планка\n- **Ср** — отдых и растяжка\n- **Чт** — интервалы: 1 мин быстро / 2 мин спокойно ×8\n- **Пт** — силовая на всё тело\n- **Сб** — прогулка или велосипед\n- **Вс** — отдых\n\nНачинайте с малого и не забывайте про разминку."],
+    startup:["Идеи для ИИ-стартапа:\n\n1. Персональный репетитор по любому предмету\n2. Ассистент для разбора договоров\n3. Рецепты по содержимому холодильника\n4. Монтаж видео по текстовому описанию\n5. Помощник поддержки для малого бизнеса"],
+    time:["Сейчас **{time}**, сегодня {date}."],
+    weather:["У меня нет доступа к интернету, поэтому погоду не знаю 🌦 Загляните в приложение погоды."],
+    sad:["Мне жаль, что так вышло 💙 Попробуйте сделать паузу, выпить воды, выйти подышать. Если хочется, расскажите, что случилось, я выслушаю."],
+    praise:["Спасибо, приятно слышать! 😊","Стараюсь! Хотя я всего лишь маленькая сеть."],
+    insult:["Справедливо, я маленькая модель и многого не знаю. Если нужны сложные ответы, подключите большую модель в ⚙️ Настройках."],
+  };
+  const labels = Object.keys(DATA);
+  let W1, b1, W2, b2, ready = null, info = {params: 0, loss: 0, acc: 0};
+  const hash = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) % D; };
+  const norm = t => t.toLowerCase().replace(/ё/g, "е").replace(/[^a-zа-я0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+  function feats(text) {
+    const f = new Map(), add = k => f.set(k, (f.get(k) || 0) + 1);
+    for (const w of norm(text).split(" ")) {
+      if (!w) continue;
+      add(hash("w:" + w));
+      const p = `^${w}$`;
+      for (let n = 3; n <= 4; n++) for (let i = 0; i + n <= p.length; i++) add(hash("c:" + p.slice(i, i + n)));
+    }
+    const s = Math.sqrt([...f.values()].reduce((a, v) => a + v * v, 0)) || 1;
+    return [...f].map(([i, v]) => [i, v / s]);
+  }
+  const rnd = () => (Math.random() + Math.random() + Math.random() - 1.5) * 0.8;
+  function forward(x) {
+    const h = new Float32Array(H);
+    for (let j = 0; j < H; j++) { let s = b1[j]; for (const [i, v] of x) s += W1[i * H + j] * v; h[j] = Math.tanh(s); }
+    const o = new Float32Array(labels.length); let mx = -1e9;
+    for (let k = 0; k < o.length; k++) { let s = b2[k]; for (let j = 0; j < H; j++) s += W2[j * o.length + k] * h[j]; o[k] = s; if (s > mx) mx = s; }
+    let z = 0; for (let k = 0; k < o.length; k++) { o[k] = Math.exp(o[k] - mx); z += o[k]; }
+    for (let k = 0; k < o.length; k++) o[k] /= z;
+    return {h, p: o};
+  }
+  function train() {
+    const C = labels.length, ex = [];
+    labels.forEach((l, k) => DATA[l].forEach(t => ex.push([feats(t), k])));
+    W1 = new Float32Array(D * H).map(rnd); b1 = new Float32Array(H);
+    W2 = new Float32Array(H * C).map(rnd); b2 = new Float32Array(C);
+    info.params = D * H + H + H * C + C;
+    const m = [W1, b1, W2, b2].map(a => new Float32Array(a.length)), v = [W1, b1, W2, b2].map(a => new Float32Array(a.length));
+    const P = [W1, b1, W2, b2], g = P.map(a => new Float32Array(a.length));
+    let t = 0, epoch = 0; const EP = 70, lr = 0.03;
+    return new Promise(res => {
+      const step = () => {
+        const t0 = performance.now();
+        while (epoch < EP && performance.now() - t0 < 30) {
+          ex.sort(() => Math.random() - 0.5); let loss = 0, ok = 0;
+          let bi = 0;
+          for (const [x, y] of ex) {
+            const {h, p} = forward(x); loss -= Math.log(p[y] + 1e-9); if (p.indexOf(Math.max(...p)) === y) ok++;
+            const dO = Float32Array.from(p); dO[y] -= 1;
+            const dH = new Float32Array(H);
+            for (let j = 0; j < H; j++) { let s = 0; for (let k = 0; k < C; k++) { g[2][j * C + k] += h[j] * dO[k]; s += W2[j * C + k] * dO[k]; } dH[j] = s * (1 - h[j] * h[j]); }
+            for (let k = 0; k < C; k++) g[3][k] += dO[k];
+            for (let j = 0; j < H; j++) { g[1][j] += dH[j]; for (const [i, val] of x) g[0][i * H + j] += val * dH[j]; }
+            if (++bi % 8 && bi < ex.length) continue;
+            t++;
+            for (let a = 0; a < 4; a++) { const G = g[a], M = m[a], V = v[a], Pa = P[a];
+              for (let i = 0; i < G.length; i++) { const gi = G[i]; if (gi === 0 && M[i] === 0) continue;
+                M[i] = 0.9 * M[i] + 0.1 * gi; V[i] = 0.999 * V[i] + 0.001 * gi * gi;
+                Pa[i] -= lr * (M[i] / (1 - 0.9 ** t)) / (Math.sqrt(V[i] / (1 - 0.999 ** t)) + 1e-8); G[i] = 0; } }
+          }
+          epoch++; info.loss = loss / ex.length; info.acc = ok / ex.length; info.epoch = epoch; Brain.onProgress?.(info, EP);
+        }
+        epoch < EP ? setTimeout(step) : res(info);
+      };
+      step();
+    });
+  }
+  function classify(text) {
+    const x = feats(text); if (!x.length) return {label: null, conf: 0};
+    const {p} = forward(x); let k = 0; p.forEach((v, i) => { if (v > p[k]) k = i; });
+    return {label: labels[k], conf: p[k]};
+  }
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  function calc(text) {
+    const m = text.replace(/,/g, ".").replace(/[×х]/g, "*").replace(/÷/g, "/").replace(/\^/g, "**").match(/[\d(][\d\s+\-*/().%]*[\d)]/);
+    if (!m || !/[+\-*/%]/.test(m[0])) return null;
+    try { const r = Function(`"use strict";return (${m[0]})`)(); return Number.isFinite(r) ? `${m[0].trim()} = **${+r.toFixed(8)}**` : null; } catch { return null; }
+  }
+  const mem = () => { try { return JSON.parse(localStorage.getItem("royou_mem") || "{}"); } catch { return {}; } };
+  const setMem = o => { try { localStorage.setItem("royou_mem", JSON.stringify(o)); } catch {} };
+  async function reply(text) {
+    await ready;
+    const nm = text.match(/(?:меня зовут|мое имя|моё имя|зови меня)\s+([A-Za-zА-Яа-яЁё-]{2,20})/i);
+    if (nm) { const n = nm[1][0].toUpperCase() + nm[1].slice(1); setMem({...mem(), name: n}); return {text: `Приятно познакомиться, ${n}! Я запомнил ваше имя 🙂`, tag: "память"}; }
+    const c = calc(text);
+    if (c) return {text: c, tag: "калькулятор"};
+    const {label, conf} = classify(text);
+    const tag = label ? `${label} · ${Math.round(conf * 100)}%` : "нет признаков";
+    if (!label || conf < 0.7) return {text: "Я пока не уверен, что вы имеете в виду 🤔 Я маленькая нейросеть и знаю около " + labels.length + " тем. Попробуйте спросить, что я умею, или подключите большую модель в ⚙️ Настройках.", tag};
+    if (label === "name_get") { const n = mem().name; return {text: n ? `Вас зовут ${n} 🙂` : "Пока не знаю. Напишите «меня зовут …».", tag}; }
+    let r = pick(R[label]).replace("{time}", new Date().toLocaleTimeString("ru-RU", {hour: "2-digit", minute: "2-digit"})).replace("{date}", new Date().toLocaleDateString("ru-RU", {weekday: "long", day: "numeric", month: "long", year: "numeric"})).replace("{params}", info.params.toLocaleString("ru-RU"));
+    const n = mem().name; if (n && label === "greet") r = r.replace("Привет!", `Привет, ${n}!`).replace("Здравствуйте!", `Здравствуйте, ${n}!`);
+    return {text: r, tag};
+  }
+  ready = new Promise(r => setTimeout(r)).then(train);
+  return {reply, ready, info, onProgress: null};
+})();
+Brain.onProgress=(i,t)=>{if(!store.get('royou_key',''))$('#modeLabel').textContent=i.epoch<t?`Обучение ${Math.round(i.epoch/t*100)}%…`:`Royou Mini · ${i.params.toLocaleString('ru-RU')} весов`};
+async function* demoStream(q) {
+  const {text, tag} = await Brain.reply(q);
+  for (let i = 0; i < text.length; i += 3) { await new Promise(s => setTimeout(s, 12)); yield text.slice(i, i + 3); }
+  yield `\n\n<small>🧠 Royou Mini · ${tag}</small>`;
 }
 
 async function ask(text){
