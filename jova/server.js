@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { MODELS, PLANS, PLAN_ORDER } = require('./config');
+const pay = require('./payments');
 const { DEFS, toolsFor, WORKSPACE, walk, searchResults, pageParagraphs } = require('./tools');
 
 const PORT = process.env.PORT || 3000;
@@ -20,6 +21,7 @@ function getUser(id) {
   if (!/^[\w-]{8,64}$/.test(id || '')) return null;
   if (!users[id]) users[id] = { plan: 'free', usage: [] };
   const u = users[id], now = Date.now();
+  if (u.until && u.until < now) { u.plan = 'free'; delete u.until; save(); }   // срок оплаты вышел
   u.usage = u.usage.filter(e => now - e.t < WEEK);
   return u;
 }
@@ -29,7 +31,7 @@ function usageOf(u) {
   const plan = PLANS[u.plan];
   const oldest = (ms) => { const w = u.usage.filter(e => now - e.t < ms); return w.length ? Math.ceil((w[0].t + ms - now) / 60000) : 0; };
   return {
-    plan: u.plan, planName: plan.name,
+    plan: u.plan, planName: plan.name, until: u.until || null,
     hour: { used: sum(HOUR), limit: plan.hourly, resetMin: oldest(HOUR) },
     week: { used: sum(WEEK), limit: plan.weekly, resetMin: oldest(WEEK) }
   };
@@ -177,10 +179,20 @@ async function handleChat(req, res, body) {
 }
 
 // ---------- HTTP ----------
-const readBody = (req) => new Promise((ok, no) => {
+const readRaw = (req) => new Promise((ok, no) => {
   let s = ''; req.on('data', c => { s += c; if (s.length > 25e6) { no(new Error('слишком большой запрос')); req.destroy(); } });
-  req.on('end', () => { try { ok(JSON.parse(s || '{}')); } catch (e) { no(e); } });
+  req.on('end', () => ok(s));
 });
+const readBody = async (req) => JSON.parse((await readRaw(req)) || '{}');
+function applyPaid(p) {
+  const u = p && ['pro', 'max'].includes(p.plan) ? getUser(p.userId) : null;
+  if (!u) return false;
+  u.paid = u.paid || [];
+  if (u.paid.includes(p.id)) return true;                                   // повторное уведомление
+  const keep = u.plan === p.plan && u.until > Date.now() ? u.until : Date.now();   // продление идёт от конца срока
+  u.plan = p.plan; u.until = keep + pay.DAYS * 864e5; u.paid.push(p.id); save();
+  return true;
+}
 const json = (res, code, o) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(o)); };
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json' };
 
@@ -190,15 +202,29 @@ http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/state') {
       const u = getUser(url.searchParams.get('user')); if (!u) return json(res, 400, { error: 'bad user' });
       return json(res, 200, {
-        usage: usageOf(u), ready: !!API_KEY, ownReady: !!process.env.JOVA_OWN_URL, devUpgrade: process.env.NODE_ENV !== 'production',
+        usage: usageOf(u), ready: !!API_KEY, ownReady: !!process.env.JOVA_OWN_URL, devUpgrade: process.env.NODE_ENV !== 'production' && !pay.provider(), payments: pay.provider(),
         models: Object.entries(MODELS).map(([id, m]) => ({ id, name: m.name, tagline: m.tagline, plan: m.plan, features: m.features })),
         plans: PLANS
       });
     }
     if (req.method === 'POST' && url.pathname === '/api/chat') return handleChat(req, res, await readBody(req));
+    if (req.method === 'POST' && url.pathname === '/api/checkout') {
+      const b = await readBody(req), u = getUser(b.userId), plan = PLANS[b.plan];
+      if (!u || !plan || !plan.price) return json(res, 400, { error: 'bad request' });
+      if (!pay.provider()) return json(res, 503, { error: 'оплата не подключена' });
+      const base = process.env.PUBLIC_URL || ('http://' + req.headers.host);
+      try { return json(res, 200, { url: await pay.createCheckout({ userId: b.userId, plan: b.plan, price: plan.price, name: plan.name, base }) }); }
+      catch (e) { return json(res, 502, { error: e.message }); }
+    }
+    if (req.method === 'POST' && url.pathname.startsWith('/api/pay/')) {
+      const raw = await readRaw(req);
+      let ok = null; try { ok = await pay.confirmWebhook(url.pathname.split('/').pop(), raw, req.headers); } catch {}
+      if (ok) applyPaid(ok);
+      res.writeHead(ok ? 200 : 400); return res.end();
+    }
     if (req.method === 'POST' && url.pathname === '/api/plan') {
-      // Платежей здесь нет. В dev-режиме тариф переключается кнопкой; перед публикацией подключите оплату.
-      if (process.env.NODE_ENV === 'production') return json(res, 403, { error: 'оплата не подключена' });
+      // Ручное переключение тарифа — только для разработки и только пока оплата не подключена.
+      if (process.env.NODE_ENV === 'production' || pay.provider()) return json(res, 403, { error: 'оплата не подключена' });
       const b = await readBody(req), u = getUser(b.userId);
       if (!u || !PLANS[b.plan]) return json(res, 400, { error: 'bad request' });
       u.plan = b.plan; save(); return json(res, 200, { usage: usageOf(u) });

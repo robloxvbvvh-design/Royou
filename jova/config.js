@@ -47,9 +47,9 @@ const PLAN_ORDER = { free: 0, pro: 1, max: 2 };
 // Лимиты в «жетонах Jova»: реальные токены (вход + выход) × вес модели.
 // Jova Code дополнительно умножается на codeMultiplier, поэтому лимит у него кончается быстрее.
 const PLANS = {
-  free: { name: 'Free', price: '0 ₽',     hourly:   30000, weekly:   200000 },
-  pro:  { name: 'Pro',  price: 'Pro',     hourly:  150000, weekly:  1000000 },
-  max:  { name: 'Max',  price: 'Max',     hourly:  600000, weekly:  5000000 }
+  free: { name: 'Free', price: 0,                                  hourly:   30000, weekly:   200000 },
+  pro:  { name: 'Pro',  price: Number(env.JOVA_PRICE_PRO || 499),  hourly:  150000, weekly:  1000000 },
+  max:  { name: 'Max',  price: Number(env.JOVA_PRICE_MAX || 1990), hourly:  600000, weekly:  5000000 }
 };
 
 module.exports = { MODELS, PLANS, PLAN_ORDER };
