@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Royou — площадка для рекламы и идей</title>
+<meta name="description" content="Выкладывай рекламу своего сайта, видео, идеи и курсы. Генерация с помощью ИИ. Зарабатывай на кликах.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Заставка -->
+<div id="splash" aria-hidden="true">
+  <div class="splash-inner">
+    <div class="mascot big" id="splashMascot"></div>
+    <h1>Royou</h1>
+    <p>Покажи свой сайт миру</p>
+  </div>
+</div>
+
+<header class="nav" id="nav">
+  <a class="logo" href="#top"><span class="dot"></span>Royou</a>
+  <nav>
+    <a href="#courses">Курсы</a>
+    <a href="#feed">Лента</a>
+    <a href="#create">Создать</a>
+    <a href="#ai">ИИ</a>
+    <a href="#money">Заработок</a>
+  </nav>
+  <a class="btn small" href="#create">Выложить рекламу</a>
+</header>
+
+<main id="top">
+
+  <!-- Начало: вступление -->
+  <section class="hero">
+    <div class="hero-text">
+      <span class="pill">Новое · ИИ-генерация рекламы</span>
+      <h1>Реклама, которую<br><em>хочется нажать.</em></h1>
+      <p>Выкладывай свой сайт, видео и идеи. Генерируй обложки и тексты с ИИ. Люди кликают — ты растёшь и зарабатываешь.</p>
+      <div class="hero-cta">
+        <a class="btn" href="#create">Выложить рекламу</a>
+        <a class="btn ghost" href="#courses">Смотреть курсы</a>
+      </div>
+      <div class="stats">
+        <div><b data-count="12840">0</b><span>кликов сегодня</span></div>
+        <div><b data-count="342">0</b><span>сайтов</span></div>
+        <div><b data-count="58">0</b><span>курсов</span></div>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="mascot" id="heroMascot"></div>
+      <div class="float-card c1"><span>🚀</span> +1 248 кликов</div>
+      <div class="float-card c2"><span>✨</span> Идея дня</div>
+      <div class="float-card c3"><span>💸</span> $42.60</div>
+    </div>
+  </section>
+
+  <!-- Курсы -->
+  <section id="courses" class="section">
+    <h2>Курсы, которые затягивают</h2>
+    <p class="sub">Короткие уроки: от первой рекламы до первых денег.</p>
+    <div class="courses" id="coursesGrid"></div>
+  </section>
+
+  <!-- Создание -->
+  <section id="create" class="section alt">
+    <h2>Выложи свою рекламу</h2>
+    <p class="sub">Фото или видео, заголовок, ссылка — и всё в ленте.</p>
+    <form id="postForm" class="card form">
+      <label>Заголовок
+        <input id="fTitle" required maxlength="80" placeholder="Например: Мой магазин кроссовок">
+      </label>
+      <label>Описание
+        <textarea id="fText" rows="3" maxlength="300" placeholder="Коротко о том, что ты предлагаешь"></textarea>
+      </label>
+      <label>Ссылка на сайт
+        <input id="fLink" type="url" required placeholder="https://example.com">
+      </label>
+      <div class="row">
+        <label>Тип
+          <select id="fType">
+            <option value="ad">Реклама сайта</option>
+            <option value="idea">Идея</option>
+            <option value="course">Курс</option>
+          </select>
+        </label>
+        <label>Фото или видео
+          <input id="fFile" type="file" accept="image/*,video/*">
+        </label>
+      </div>
+      <div class="preview" id="preview" hidden></div>
+      <div class="row">
+        <button class="btn" type="submit">Опубликовать</button>
+        <button class="btn ghost" type="button" id="toAI">Сгенерировать с ИИ ✨</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- ИИ -->
+  <section id="ai" class="section">
+    <h2>ИИ-студия</h2>
+    <p class="sub">Опиши свой сайт — получишь текст рекламы и обложку.</p>
+    <div class="ai-grid">
+      <div class="card form">
+        <label>Что рекламируем?
+          <input id="aiTopic" placeholder="Например: онлайн-школа английского">
+        </label>
+        <label>Стиль
+          <select id="aiStyle">
+            <option value="green">Зелёный свежий</option>
+            <option value="dark">Тёмный премиум</option>
+            <option value="sun">Тёплый закат</option>
+            <option value="sky">Небесный</option>
+          </select>
+        </label>
+        <label>Тон текста
+          <select id="aiTone">
+            <option value="bold">Смелый</option>
+            <option value="friendly">Дружелюбный</option>
+            <option value="pro">Деловой</option>
+          </select>
+        </label>
+        <button class="btn" id="aiGo">Сгенерировать</button>
+        <p class="note">Это встроенный демо-генератор (шаблоны и canvas, работает без интернета). Для настоящего ИИ подключите API в <code>app.js</code> → <code>generateWithAPI()</code>.</p>
+      </div>
+      <div class="card ai-out">
+        <canvas id="aiCanvas" width="800" height="450"></canvas>
+        <div id="aiText" class="ai-text">Здесь появится результат</div>
+        <div class="row">
+          <button class="btn small" id="aiUse" disabled>Использовать в посте</button>
+          <a class="btn small ghost" id="aiDl" download="royou-cover.png" href="#">Скачать обложку</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Лента -->
+  <section id="feed" class="section alt">
+    <h2>Лента идей и рекламы</h2>
+    <div class="filters" id="filters">
+      <button data-f="all" class="on">Все</button>
+      <button data-f="ad">Реклама</button>
+      <button data-f="idea">Идеи</button>
+      <button data-f="course">Курсы</button>
+    </div>
+    <div class="feed" id="feedGrid"></div>
+  </section>
+
+  <!-- Монетизация -->
+  <section id="money" class="section">
+    <h2>Зарабатывай на Royou</h2>
+    <p class="sub">Четыре способа монетизации платформы.</p>
+    <div class="plans">
+      <div class="card plan">
+        <h3>Старт</h3>
+        <div class="price">0 ₽</div>
+        <ul><li>3 поста в месяц</li><li>Обычная лента</li><li>ИИ: 5 генераций</li></ul>
+        <a class="btn ghost" href="#create">Начать</a>
+      </div>
+      <div class="card plan hot">
+        <span class="pill">Хит</span>
+        <h3>Про</h3>
+        <div class="price">490 ₽<small>/мес</small></div>
+        <ul><li>Безлимит постов</li><li>Приоритет в ленте</li><li>ИИ без лимита</li><li>Статистика кликов</li></ul>
+        <button class="btn" data-buy="Про">Подключить</button>
+      </div>
+      <div class="card plan">
+        <h3>Буст</h3>
+        <div class="price">от 5 ₽<small>/клик</small></div>
+        <ul><li>Платишь только за клики</li><li>Закреп наверху ленты</li><li>Таргет по темам</li></ul>
+        <button class="btn ghost" data-buy="Буст">Запустить</button>
+      </div>
+    </div>
+    <div class="card earn">
+      <h3>Калькулятор дохода платформы</h3>
+      <div class="row">
+        <label>Кликов в день <input type="range" id="rClicks" min="100" max="100000" step="100" value="5000"><b id="vClicks">5 000</b></label>
+        <label>Цена клика, ₽ <input type="range" id="rCpc" min="1" max="20" step="1" value="5"><b id="vCpc">5</b></label>
+        <label>Pro-подписчиков <input type="range" id="rSubs" min="0" max="2000" step="10" value="100"><b id="vSubs">100</b></label>
+      </div>
+      <div class="result">≈ <b id="vTotal">0</b> ₽ в месяц</div>
+      <p class="note">Источники: оплата кликов (Буст), подписка Про, партнёрские ссылки на курсы, реклама внутри ленты.</p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span class="logo"><span class="dot"></span>Royou</span>
+  <span>© 2026 · Сделано с 💚</span>
+</footer>
+
+<div id="toast" role="status"></div>
+<script src="app.js"></script>
+</body>
+</html>
