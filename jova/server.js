@@ -81,6 +81,27 @@ async function* streamClaude(body) {
   }
 }
 
+async function handleOwn(u, model, body, send) {
+  const last = [...(body.messages || [])].reverse().find(m => m.role === 'user');
+  const r = await fetch(process.env.JOVA_OWN_URL + '/generate', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text: last ? last.content : '', max_tokens: model.maxTokens })
+  });
+  if (!r.ok) throw new Error('собственная модель недоступна (' + r.status + ')');
+  let buf = '', inTok = 0, outTok = 0; const dec = new TextDecoder();
+  for await (const chunk of r.body) {
+    buf += dec.decode(chunk, { stream: true }); let i;
+    while ((i = buf.indexOf('\n\n')) >= 0) {
+      const line = buf.slice(0, i); buf = buf.slice(i + 2);
+      if (!line.startsWith('data:')) continue;
+      const d = JSON.parse(line.slice(5));
+      if (d.delta) send({ type: 'text', delta: d.delta });
+      if (d.usage) { inTok = d.usage.input; outTok = d.usage.output; }
+    }
+  }
+  charge(u, model, inTok, outTok); send({ type: 'usage', usage: usageOf(u) });
+}
+
 async function handleChat(req, res, body) {
   const send = (o) => res.write('data: ' + JSON.stringify(o) + '\n\n');
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
@@ -89,10 +110,11 @@ async function handleChat(req, res, body) {
     const u = getUser(body.userId); if (!u) throw new Error('неизвестный пользователь');
     const model = MODELS[body.model]; if (!model) throw new Error('неизвестная модель');
     if (PLAN_ORDER[u.plan] < PLAN_ORDER[model.plan]) throw Object.assign(new Error(`${model.name} доступна с подпиской ${PLANS[model.plan].name}`), { code: 'plan' });
-    if (!API_KEY) throw new Error('на сервере не задан ANTHROPIC_API_KEY');
+    if (model.provider !== 'own' && !API_KEY) throw new Error('на сервере не задан ANTHROPIC_API_KEY');
     let usage = usageOf(u), hit = limitHit(usage);
     if (hit) throw Object.assign(new Error(hit === 'hour' ? `Часовой лимит исчерпан. Обновится через ${usage.hour.resetMin} мин.` : `Недельный лимит исчерпан. Обновится через ${Math.ceil(usage.week.resetMin / 60)} ч.`), { code: 'limit' });
 
+    if (model.provider === 'own') { await handleOwn(u, model, body, send); send({ type: 'done' }); return res.end(); }
     const messages = toApiMessages(body.messages || [], model);
     const tools = toolsFor(model, body.search !== false);
 
