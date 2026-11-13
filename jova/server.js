@@ -182,7 +182,7 @@ const readBody = (req) => new Promise((ok, no) => {
   req.on('end', () => { try { ok(JSON.parse(s || '{}')); } catch (e) { no(e); } });
 });
 const json = (res, code, o) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(o)); };
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json' };
 
 http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
@@ -190,7 +190,7 @@ http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/state') {
       const u = getUser(url.searchParams.get('user')); if (!u) return json(res, 400, { error: 'bad user' });
       return json(res, 200, {
-        usage: usageOf(u), ready: !!API_KEY, devUpgrade: process.env.NODE_ENV !== 'production',
+        usage: usageOf(u), ready: !!API_KEY, ownReady: !!process.env.JOVA_OWN_URL, devUpgrade: process.env.NODE_ENV !== 'production',
         models: Object.entries(MODELS).map(([id, m]) => ({ id, name: m.name, tagline: m.tagline, plan: m.plan, features: m.features })),
         plans: PLANS
       });
