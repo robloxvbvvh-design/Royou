@@ -118,18 +118,20 @@ function panel(title, backTo) {
 }
 function buildModes() {
   modes.innerHTML = ''; const p = panel('Режимы игры', 'menu');
-  const g = h('', 'grid'); g.style.cssText = 'grid-template-columns:repeat(3,1fr);align-content:center';
+  const g = h('', 'grid'); g.style.cssText = 'grid-template-columns:repeat(4,1fr);align-content:center';
   const defs = [
+    ['🎮 Обычный бой', 'Свободная битва против врага. Все воины открыты сразу. Выберите сложность и разрушьте вражескую статую!', openSkirm, 'skirm'],
     ['⚔️ Миссии', 'Пройдите 6 рас. Каждая победа открывает нового воина. Разрушьте статую врага!', () => { buildLevels(); show('levels'); }, 'mission'],
     ['🧟 Зомби', 'Бесконечные волны зомби. Защищайте статую как можно дольше!', startZombie, 'zombie'],
     ['🏆 Турнир', '3 раунда подряд: четвертьфинал, полуфинал и финал. Приз — гемы!', () => startTour(0), 'tour']
   ];
   for (const [t, d, fn, k] of defs) {
-    const c = h('<h3 style="font-size:32px">' + t + '</h3>', 'card mode');
-    const cc = document.createElement('canvas'); cc.width = 280; cc.height = 150; const x = cc.getContext('2d');
+    const c = h('<h3 style="font-size:28px">' + t + '</h3>', 'card mode'); c.style.width = 'auto';
+    const cc = document.createElement('canvas'); cc.width = 280; cc.height = 150; cc.style.cssText = 'width:100%;height:auto'; const x = cc.getContext('2d');
     x.fillStyle = k === 'zombie' ? '#c6d3b0' : '#e5d9bb'; x.fillRect(0, 0, 280, 150); x.fillStyle = '#b8a77f'; x.fillRect(0, 118, 280, 32); x.strokeStyle = '#111'; x.lineWidth = 4; x.beginPath(); x.moveTo(0, 118); x.lineTo(280, 118); x.stroke();
     if (k === 'zombie') { for (let i = 0; i < 4; i++) drawStick(x, { x: 70 + i * 55, y: 135, s: 0.75, type: i % 2 ? 'runner' : 'zombie', zomb: true, dir: -1, t: i }); drawStick(x, { x: 240, y: 135, s: .8, type: 'captain', dir: -1, t: 1 }); }
     else if (k === 'tour') { x.fillStyle = '#ffd21f'; x.strokeStyle = '#111'; x.lineWidth = 4; x.beginPath(); x.moveTo(110, 20); x.lineTo(170, 20); x.lineTo(162, 70); x.quadraticCurveTo(140, 92, 118, 70); x.closePath(); x.fill(); x.stroke(); x.fillRect(128, 84, 24, 20); x.strokeRect(128, 84, 24, 20); x.fillRect(112, 104, 56, 12); x.strokeRect(112, 104, 56, 12); drawStick(x, { x: 50, y: 135, s: .8, type: 'sword', dir: 1, t: 0 }); drawStick(x, { x: 230, y: 135, s: .8, type: 'sword', team: 1, dir: -1, t: 1 }); }
+    else if (k === 'skirm') { drawStick(x, { x: 40, y: 135, s: .8, type: 'captain', dir: 1, t: 0 }); drawStick(x, { x: 85, y: 135, s: .8, type: 'archer', dir: 1, t: 1 }); drawStick(x, { x: 150, y: 135, s: .8, type: 'sword', team: 1, dir: -1, t: 2 }); drawStick(x, { x: 195, y: 135, s: .8, type: 'club', team: 1, dir: -1, t: 3 }); }
     else { drawStick(x, { x: 45, y: 135, s: .8, type: 'club', dir: 1, t: 0 }); drawStick(x, { x: 85, y: 135, s: .8, type: 'archer', dir: 1, t: 1 }); drawStick(x, { x: 195, y: 135, s: .8, type: 'club', team: 1, dir: -1, t: 2 }); drawStick(x, { x: 235, y: 135, s: .8, type: 'mage', team: 1, dir: -1, t: 3 }); }
     c.appendChild(cc); c.appendChild(h('<p>' + d + '</p>'));
     if (k === 'zombie') c.appendChild(h('<p><b>Рекорд: волна ' + SAVE.zBest + '</b></p>'));
@@ -286,9 +288,9 @@ function buildHUD() {
 function updHUD() {
   if (!B) return;
   hudRef.gold.lastChild.textContent = Math.floor(B.gold); hudRef.pop.lastChild.textContent = popUsed() + '/' + POPCAP;
-  hudRef.mode.textContent = B.mode === 'zombie' ? '🧟 Волна ' + B.z.wave + ' · убито ' + B.kills : B.mode === 'tour' ? '🏆 ' + TOUR[B.cfg.round].n + ' (' + (B.cfg.round + 1) + '/3)' : 'Ур.' + (B.cfg.level + 1) + ' · ' + LEVELS[B.cfg.level].n;
+  hudRef.mode.textContent = B.mode === 'zombie' ? '🧟 Волна ' + B.z.wave + ' · убито ' + B.kills : B.mode === 'skirm' ? '🎮 Бой · ' + ['Лёгкий', 'Средний', 'Сложный'][B.cfg.diff] : B.mode === 'tour' ? '🏆 ' + TOUR[B.cfg.round].n + ' (' + (B.cfg.round + 1) + '/3)' : 'Ур.' + (B.cfg.level + 1) + ' · ' + LEVELS[B.cfg.level].n;
   for (const t of UORDER) {
-    const d = UNITS[t], r = hudRef.ub[t], locked = SAVE.cleared < d.unlock;
+    const d = UNITS[t], r = hudRef.ub[t], locked = isLocked(d);
     r.lk.style.display = locked ? 'flex' : 'none';
     r.b.classList.toggle('no', !locked && (B.gold < d.cost || popUsed() + d.pop > POPCAP));
     const n = B.queue.filter(q => q === t).length; r.q.style.display = n ? 'block' : 'none'; r.q.textContent = n;
@@ -313,6 +315,17 @@ function startMission(i) {
     story('Легенда стикменов', ['Давным-давно в мире жило множество рас. Они воевали друг с другом тысячи лет, но ни одна не могла уничтожить остальных — пока не явилась самая могучая раса: Гиганты.', 'Вы — народ, решивший отделиться и стать свободным. Ваша цель — победить расы одну за другой и разрушить главную статую Гигантов.', 'Каждая победа открывает нового воина. Защищайте свою статую и уничтожайте вражескую!'], 'Далее', first);
   } else first();
 }
+function openSkirm() {
+  const s = h('', 'story'); const b = h('<h2>Обычный бой</h2><p>Выберите сложность. Все воины доступны с самого начала.</p>', 'box');
+  const a = h('', 'actions'); a.style.cssText = 'display:flex;gap:16px;justify-content:center;flex-wrap:wrap';
+  [['ЛЁГКИЙ', 'chest', 0], ['СРЕДНИЙ', 'shop', 1], ['СЛОЖНЫЙ', 'play', 2]].forEach(([t, c, d]) => { const bt = btn(t, c, () => { s.remove(); startSkirm(d); }); bt.style.cssText = 'width:240px;height:70px;font-size:32px'; a.appendChild(bt); });
+  const x = btn('Отмена', 'dark small', () => s.remove()); a.appendChild(x); b.appendChild(a); s.appendChild(b); ui.appendChild(s);
+}
+function startSkirm(d) {
+  beginBattle({ mode: 'skirm', diff: d, all: true, world: 3000, gold: 500, pool: [['club', 3], ['sword', 2], ['archer', 2], ['captain', 1.5], ['mage', 1], ['giant', 0.5]],
+    inc: [4, 6, 8][d], delay: [5, 4, 3.2][d], thr: [5, 7, 9][d], eHp: [1500, 2500, 3500][d], egold: 300, epop: [16, 22, 28][d], emHp: 1 + 0.15 * d, emDmg: 1 + 0.12 * d });
+}
+const isLocked = d => !(B && B.cfg.all) && SAVE.cleared < d.unlock;
 function startZombie() { beginBattle({ mode: 'zombie', world: 2400, gold: 400 }); }
 function startTour(r) { const T = TOUR[r]; beginBattle({ mode: 'tour', round: r, world: 2300, gold: 500, pool: T.pool, inc: T.inc, delay: T.delay, thr: T.thr, eHp: T.eHp, egold: 400, epop: 20, emHp: 1 + r * 0.06, emDmg: 1 + r * 0.05 }); }
 
@@ -476,7 +489,7 @@ function zombieAI(dt) {
 
 function buy(type) {
   if (!B || B.over || B.paused) return; const d = UNITS[type];
-  if (SAVE.cleared < d.unlock) return note('Откроется после уровня ' + d.unlock);
+  if (isLocked(d)) return note('Откроется после уровня ' + d.unlock);
   if (B.gold < d.cost) return note('Не хватает золота');
   if (popUsed() + d.pop > POPCAP) return note('Лимит армии');
   if (B.queue.length >= 6) return note('Очередь полна');
@@ -520,6 +533,10 @@ function finishBattle() {
       if (cfg.level + 1 < LEVELS.length) acts.push(['СЛЕДУЮЩИЙ УРОВЕНЬ', 'shop', () => { leaveBattle(); startMission(cfg.level + 1); }]);
       else acts.push(['ЕЩЁ РАЗ', 'shop', () => { leaveBattle(); startMission(cfg.level); }]);
     } else { title = 'ПОРАЖЕНИЕ'; lines = ['Ваша статуя разрушена...']; acts.push(['ЕЩЁ РАЗ', 'shop', () => { leaveBattle(); startMission(cfg.level); }]); }
+  } else if (cfg.mode === 'skirm') {
+    if (res === 'win') { const g = [30, 50, 80][cfg.diff]; SAVE.gems += g; persist(); title = 'ПОБЕДА!'; lines = ['Вражеская статуя разрушена', 'Награда: 💎 ' + g]; }
+    else { title = 'ПОРАЖЕНИЕ'; lines = ['Ваша статуя разрушена...']; }
+    acts.push(['ЕЩЁ РАЗ', 'shop', () => { leaveBattle(); startSkirm(cfg.diff); }]);
   } else if (cfg.mode === 'zombie') {
     const w = Math.max(0, B.z.wave - 1), gems = w * 4; SAVE.gems += gems; if (w > SAVE.zBest) SAVE.zBest = w; persist();
     title = 'ВЫ ПРОДЕРЖАЛИСЬ'; lines = ['Пережито волн: <b>' + w + '</b> (рекорд ' + SAVE.zBest + ')', 'Убито зомби: ' + B.kills, 'Награда: 💎 ' + gems]; acts.push(['ЕЩЁ РАЗ', 'shop', () => { leaveBattle(); startZombie(); }]);
@@ -587,7 +604,7 @@ function updateBattle(dt) {
 /* ---- battle rendering ---- */
 function drawBattle() {
   const c = ctx, cam = B.cam, themes = [null, { sky0: '#d9e4ea', sky1: '#f3ead6', far: '#c9d2d8', mid: '#d6c9a8', ground: '#d2c49f', line: '#111' }, { sky0: '#e6d9cf', sky1: '#f3e2c4', far: '#d0c2c0', mid: '#d8c4a6', ground: '#cdb68f', line: '#111' }, { sky0: '#dad6e6', sky1: '#efe2d4', far: '#c4c0d2', mid: '#d3c3b0', ground: '#c9b895', line: '#111' }, { sky0: '#d6cfc6', sky1: '#e8d9c0', far: '#bdb2a8', mid: '#cdb99a', ground: '#c1ab84', line: '#111' }, { sky0: '#d2d0e8', sky1: '#e9dccc', far: '#bcb8d4', mid: '#cdbfae', ground: '#c3b392', line: '#111' }, { sky0: '#cfc2c2', sky1: '#e6cfbd', far: '#b8a6a6', mid: '#c9b09b', ground: '#bda583', line: '#111' }];
-  const th = B.mode === 'zombie' ? { sky0: '#bccab6', sky1: '#e3e4c6', far: '#a9bba4', mid: '#bfc29a', ground: '#b7b389', line: '#111' } : themes[(B.cfg.level != null ? B.cfg.level : B.cfg.round * 2) + 1 > 6 ? 6 : (B.cfg.level != null ? B.cfg.level : B.cfg.round * 2) + 1];
+  const th = B.mode === 'zombie' ? { sky0: '#bccab6', sky1: '#e3e4c6', far: '#a9bba4', mid: '#bfc29a', ground: '#b7b389', line: '#111' } : themes[Math.min(6, (B.cfg.level != null ? B.cfg.level : B.cfg.round != null ? B.cfg.round * 2 : (B.cfg.diff || 0) * 2 + 1) + 1)];
   drawBG(c, cam, B.time, th);
   c.save();
   if (B.shake > 0.2) c.translate(rand(-B.shake, B.shake), rand(-B.shake, B.shake) * 0.6);
@@ -680,5 +697,5 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 updGems(); show('menu'); requestAnimationFrame(frame);
-window.__game = { get B() { return B; }, SAVE, startMission, startZombie, startTour, startEnding, buy, cast, setStance, updateBattle, LEVELS, UNITS };
+window.__game = { startSkirm, get B() { return B; }, SAVE, startMission, startZombie, startTour, startEnding, buy, cast, setStance, updateBattle, LEVELS, UNITS };
 })();
