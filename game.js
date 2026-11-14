@@ -47,6 +47,14 @@ const LEVELS = [
   { n: 'Гиганты', unit: null, pool: [['giant', 2], ['mage', 2], ['captain', 2], ['archer', 2]], inc: 8.5, delay: 3.4, thr: 10, eHp: 3500, reward: 120, world: 3800, final: true,
     txt: ['Раса №6 — Гиганты. Самая могучая раса мира, из-за которой когда-то никто не мог победить.', 'Разрушьте их статую — и война закончится навсегда.'] }
 ];
+const BOSSES = [
+  { n: 'Вожак Булавщиков', type: 'club',    hp: 800,  dmg: 22, s: 1.9 },
+  { n: 'Мастер-лучник',    type: 'archer',  hp: 600,  dmg: 28, s: 1.6 },
+  { n: 'Король мечей',     type: 'sword',   hp: 1100, dmg: 32, s: 1.9 },
+  { n: 'Генерал копья',    type: 'captain', hp: 1800, dmg: 44, s: 2.1 },
+  { n: 'Архимаг',          type: 'mage',    hp: 1300, dmg: 60, s: 1.9 },
+  { n: 'Король-Гигант',    type: 'giant',   hp: 4500, dmg: 95, s: 3.1 }
+];
 const TOUR = [
   { n: 'Четвертьфинал', pool: [['club', 2], ['archer', 1], ['sword', 1]], inc: 4, delay: 4.6, thr: 5, eHp: 1100 },
   { n: 'Полуфинал',     pool: [['captain', 2], ['sword', 1], ['archer', 2]], inc: 5.6, delay: 4, thr: 6, eHp: 1500 },
@@ -121,7 +129,7 @@ function buildModes() {
   const g = h('', 'grid'); g.style.cssText = 'grid-template-columns:repeat(4,1fr);align-content:center';
   const defs = [
     ['🎮 Обычный бой', 'Свободная битва против врага. Все воины открыты сразу. Выберите сложность и разрушьте вражескую статую!', openSkirm, 'skirm'],
-    ['⚔️ Миссии', 'Пройдите 6 рас. Каждая победа открывает нового воина. Разрушьте статую врага!', () => { buildLevels(); show('levels'); }, 'mission'],
+    ['👑 Карьера', 'Пройдите 6 рас. На каждом уровне вас ждёт БОСС! Победа открывает нового воина.', () => { buildLevels(); show('levels'); }, 'mission'],
     ['🧟 Зомби', 'Бесконечные волны зомби. Защищайте статую как можно дольше!', startZombie, 'zombie'],
     ['🏆 Турнир', '3 раунда подряд: четвертьфинал, полуфинал и финал. Приз — гемы!', () => startTour(0), 'tour']
   ];
@@ -143,7 +151,7 @@ function buildModes() {
 /* ---- levels ---- */
 const levels = addScreen('levels', h('', 'screen'));
 function buildLevels() {
-  levels.innerHTML = ''; const p = panel('Миссии — расы мира', 'modes');
+  levels.innerHTML = ''; const p = panel('Карьера — расы и боссы', 'modes');
   p.querySelector('.back').onclick = () => { sfx('ui'); buildModes(); show('modes'); };
   const g = h('', 'grid lvlgrid');
   LEVELS.forEach((L, i) => {
@@ -153,7 +161,7 @@ function buildLevels() {
     const cc = document.createElement('canvas'); cc.width = 200; cc.height = 90; const x = cc.getContext('2d');
     x.fillStyle = '#e5d9bb'; x.fillRect(0, 0, 200, 90); x.fillStyle = '#b8a77f'; x.fillRect(0, 74, 200, 16);
     const t0 = L.pool[0][0]; drawStick(x, { x: 50, y: 80, s: 0.7, type: t0, team: 1, dir: 1, t: 0 }); drawStick(x, { x: 100, y: 80, s: 0.7, type: L.pool[L.pool.length - 1][0], team: 1, dir: 1, t: 1 }); drawStick(x, { x: 150, y: 80, s: L.final ? 0.42 : 0.7, type: L.final ? 'giant' : t0, team: 1, dir: 1, t: 2, helm: L.final });
-    c.appendChild(cc); c.appendChild(h('<h3>' + L.n + '</h3>'));
+    c.appendChild(cc); c.appendChild(h('<h3>' + L.n + '</h3><p>👑 Босс: <b>' + BOSSES[i].n + '</b></p>'));
     c.appendChild(h('<p>' + (L.unit ? 'Откроет: <b>' + UNITS[L.unit].n + '</b>' : '<b>ФИНАЛ ИГРЫ</b>') + '<br>Награда: 💎 ' + L.reward + '</p>'));
     if (lock) c.appendChild(h('<p>🔒 Пройдите предыдущий уровень</p>')); else c.appendChild(btn(done ? 'ПОВТОР' : 'В БОЙ', 'dark small', () => startMission(i)));
     g.appendChild(c);
@@ -309,7 +317,7 @@ function note(t) { sfx('err'); toast(t); }
 function startMission(i) {
   const L = LEVELS[i];
   const go = () => beginBattle({ mode: 'mission', level: i, world: L.world, gold: 350, pool: L.pool, inc: L.inc, delay: L.delay, thr: L.thr, eHp: L.eHp, egold: 100, epop: 14 + i * 2, emHp: 1 + 0.05 * i, emDmg: 1 + 0.05 * i });
-  const first = () => story('Уровень ' + (i + 1) + ': ' + L.n, L.txt, 'В БОЙ!', go);
+  const first = () => story('Уровень ' + (i + 1) + ': ' + L.n, L.txt.concat(['👑 Когда статуя врага будет повреждена, появится босс: <b>' + BOSSES[i].n + '</b>. Победите его!']), 'В БОЙ!', go);
   if (!SAVE.seenIntro && i === 0) {
     SAVE.seenIntro = true; persist();
     story('Легенда стикменов', ['Давным-давно в мире жило множество рас. Они воевали друг с другом тысячи лет, но ни одна не могла уничтожить остальных — пока не явилась самая могучая раса: Гиганты.', 'Вы — народ, решивший отделиться и стать свободным. Ваша цель — победить расы одну за другой и разрушить главную статую Гигантов.', 'Каждая победа открывает нового воина. Защищайте свою статую и уничтожайте вражескую!'], 'Далее', first);
@@ -343,7 +351,7 @@ function beginBattle(cfg) {
   banner(B.mode === 'mission' ? 'Уровень ' + (cfg.level + 1) : B.mode === 'tour' ? TOUR[cfg.round].n : 'Зомби-режим');
   updHUD();
 }
-function banner(t) { const b = h(t, 'banner'); hud.appendChild(b); setTimeout(() => b.remove(), 2300); }
+function banner(t) { hud.querySelectorAll('.banner').forEach(e => e.remove()); const b = h(t, 'banner'); hud.appendChild(b); setTimeout(() => b.remove(), 2300); }
 function leaveBattle() { B = null; scene = 'menu'; pauseEl.classList.add('hidden'); endEl.innerHTML = ''; updGems(); show('menu'); }
 function setPause(v) { if (!B || B.over) return; B.paused = v; pauseEl.classList.toggle('hidden', !v); }
 function setStance(s) { if (!B || B.over) return; B.stance = s; if (s !== 'garrison') for (const u of B.units) if (u.team === 0) u.hidden = false; sfx('ui'); }
@@ -360,6 +368,7 @@ function spawnUnit(type, team, x, extra) {
 function hurt(u, dmg) {
   if (u.dead) return; u.hp -= dmg * u.armor; u.flash = 0.12; sfx('hit');
   if (u.hp <= 0) {
+    if (u.boss) { B.bossDead = true; B.shake = 14; B.gold += 300; for (let i = 0; i < 30; i++) B.fx.push({ k: 'dot', x: u.x + rand(-40, 40), y: u.y - rand(0, 200), vx: rand(-250, 250), vy: rand(-450, -100), life: rand(0.8, 1.6), col: '#ffd21f', big: true }); banner('БОСС ПОВЕРЖЕН!'); }
     u.dead = true; B.corpses.push({ x: u.x, y: u.y, type: u.type, team: u.team, zomb: u.zomb, dir: u.dir, s: u.s, t: 0, skin: u.skin, helm: u.helm });
     for (let i = 0; i < 6; i++) B.fx.push({ k: 'dot', x: u.x, y: u.y - 40 * u.s, vx: rand(-90, 90), vy: rand(-200, -40), life: 0.6, col: u.team === 1 ? '#c8201a' : '#222' });
     if (u.team === 1) { B.kills++; const g = u.zomb ? 10 : Math.round(UNITS[u.type].cost * 0.08); if (g) { B.gold += g; B.texts.push({ x: u.x, y: u.y - 90, t: 1, s: '+' + g, c: '#b88a00' }); } }
@@ -527,9 +536,9 @@ function finishBattle() {
     const L = LEVELS[cfg.level];
     if (res === 'win') {
       const first = SAVE.cleared <= cfg.level; const gems = first ? L.reward : Math.round(L.reward / 4);
-      SAVE.gems += gems + Math.min(B.kills, 30); if (first) SAVE.cleared = cfg.level + 1; persist();
+      const bb = B.bossDead ? 25 : 0; SAVE.gems += gems + Math.min(B.kills, 30) + bb; if (first) SAVE.cleared = cfg.level + 1; persist();
       if (L.final && first) { setTimeout(() => { leaveBattle(); startEnding(); }, 100); return; }
-      title = 'ПОБЕДА!'; lines = ['Награда: 💎 ' + (gems + Math.min(B.kills, 30)), first && L.unit ? '🆕 Открыт новый воин: <b>' + UNITS[L.unit].n + '</b>!' : ''];
+      title = 'ПОБЕДА!'; lines = ['Награда: 💎 ' + (gems + Math.min(B.kills, 30) + bb), B.bossDead ? '👑 Босс повержен: <b>+25 💎</b>' : '', first && L.unit ? '🆕 Открыт новый воин: <b>' + UNITS[L.unit].n + '</b>!' : ''];
       if (cfg.level + 1 < LEVELS.length) acts.push(['СЛЕДУЮЩИЙ УРОВЕНЬ', 'shop', () => { leaveBattle(); startMission(cfg.level + 1); }]);
       else acts.push(['ЕЩЁ РАЗ', 'shop', () => { leaveBattle(); startMission(cfg.level); }]);
     } else { title = 'ПОРАЖЕНИЕ'; lines = ['Ваша статуя разрушена...']; acts.push(['ЕЩЁ РАЗ', 'shop', () => { leaveBattle(); startMission(cfg.level); }]); }
@@ -559,6 +568,12 @@ function updateBattle(dt) {
     for (const k in B.cd) if (B.cd[k] > 0) B.cd[k] -= dt;
     if (B.rageT > 0) B.rageT -= dt;
     enemyAI(dt); zombieAI(dt);
+    if (B.mode === 'mission' && !B.boss && B.es && B.es.hp < B.es.max * 0.6) {
+      const bd = BOSSES[B.cfg.level], base = UNITS[bd.type];
+      const u = spawnUnit(bd.type, 1, B.es.x - 90, { boss: true, bossName: bd.n, hpMul: bd.hp / (base.hp * B.em.hp), s: bd.s });
+      u.dmg = bd.dmg * B.em.dmg; u.armor = Math.min(u.armor, 0.85); u.range *= RANGED(bd.type) ? 1.1 : Math.max(1, bd.s / 1.4); u.lw = 5.2;
+      B.boss = u; banner('БОСС: ' + bd.n); B.shake = 10; sfx('boom');
+    }
     // rain spell
     if (B.rain) { B.rain.t -= dt; B.rain.acc += dt; while (B.rain.acc > 0.06) { B.rain.acc -= 0.06; B.proj.push({ k: 'arrow', x: B.rain.cx + rand(-280, 280), y: -30, vx: 0, vy: 650, team: 0, dmg: 7 * B.pm.dmg }); } if (B.rain.t <= 0) B.rain = null; }
     // secret archers
@@ -624,8 +639,9 @@ function drawBattle() {
       const k = Math.min(1, u.t * 3.2);
       drawStick(c, { x: u.x, y: u.y, s: u.s, type: u.type, team: u.team, zomb: u.zomb, dir: u.dir, rot: -u.dir * 1.45 * k, t: 0, alpha: 1 - Math.max(0, u.t - 1.1) / 0.8, skin: u.skin, helm: u.helm });
     } else {
-      drawStick(c, { x: u.x, y: u.y, s: u.s, type: u.type, team: u.team, zomb: u.zomb, dir: u.dir, t: u.t, moving: u.moving, atk: u.atk, flash: u.flash, mine: u.mine, carry: u.carry, skin: u.skin, helm: u.helm, lw: u.s > 1.5 ? 4.6 : 4.4 });
+      drawStick(c, { x: u.x, y: u.y, s: u.s, type: u.type, team: u.team, zomb: u.zomb, dir: u.dir, t: u.t, moving: u.moving, atk: u.atk, flash: u.flash, mine: u.mine, carry: u.carry, skin: u.skin, helm: u.helm, lw: u.lw || (u.s > 1.5 ? 4.6 : 4.4) });
       drawHp(c, u.x, u.y - 98 * u.s, 30 + 12 * u.s, u.hp / u.max, u.team === 1);
+      if (u.boss) { const cy = u.y - 112 * u.s; c.fillStyle = '#ffd21f'; c.strokeStyle = '#111'; c.lineWidth = 3; c.beginPath(); c.moveTo(u.x - 16, cy); c.lineTo(u.x - 16, cy - 16); c.lineTo(u.x - 8, cy - 8); c.lineTo(u.x, cy - 20); c.lineTo(u.x + 8, cy - 8); c.lineTo(u.x + 16, cy - 16); c.lineTo(u.x + 16, cy); c.closePath(); c.fill(); c.stroke(); }
       if (u.team === 0 && B.rageT > 0 && u.type !== 'miner') { c.fillStyle = 'rgba(255,60,0,.8)'; c.fillRect(u.x - 3, u.y - 108 * u.s, 6, 6); }
     }
   }
@@ -649,7 +665,13 @@ function drawBattle() {
   c.fillStyle = '#4cd964'; c.fillRect(sx(B.ps.x) - 4, my + 6, 8, 14); if (B.es) { c.fillStyle = '#ff4a3a'; c.fillRect(sx(B.es.x) - 4, my + 6, 8, 14); }
   for (const u of B.units) { if (u.hidden) continue; c.fillStyle = u.team === 1 ? '#ff4a3a' : '#fff'; c.fillRect(sx(u.x) - 1.5, my + 10, 3, 6); }
   c.strokeStyle = '#ffd21f'; c.lineWidth = 2; c.strokeRect(sx(B.cam), my + 2, W / B.world * mw, 22);
-  if (B.stance === 'garrison') { c.fillStyle = '#fff'; c.font = 'bold 22px Impact'; c.textAlign = 'center'; c.fillText('🏰 ТАЙНЫЕ ЛУЧНИКИ ГОТОВЫ', W / 2, 62); }
+  if (B.boss && !B.boss.dead) {
+    const bw = 520, bx = 330, by = 44, fr = clamp(B.boss.hp / B.boss.max, 0, 1);
+    c.fillStyle = 'rgba(17,17,17,.85)'; c.fillRect(bx, by, bw, 22); c.strokeStyle = '#000'; c.lineWidth = 3; c.strokeRect(bx, by, bw, 22);
+    c.fillStyle = '#e03a2e'; c.fillRect(bx + 3, by + 3, (bw - 6) * fr, 16);
+    c.fillStyle = '#fff'; c.font = 'bold 16px Impact, sans-serif'; c.textAlign = 'center'; c.fillText('👑 ' + B.boss.bossName, bx + bw / 2, by + 17);
+  }
+  if (B.stance === 'garrison') { c.fillStyle = '#fff'; c.font = 'bold 22px Impact'; c.textAlign = 'center'; c.fillText('🏰 ТАЙНЫЕ ЛУЧНИКИ ГОТОВЫ', W / 2, 90); }
 }
 
 /* ============ ENDING ============ */
