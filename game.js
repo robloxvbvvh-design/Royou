@@ -71,7 +71,7 @@ const SKINS = {
 };
 const UPS = {
   statue: { n: 'Крепкая статуя', d: '+350 прочности вашей статуи', ic: '🗿' },
-  mine:   { n: 'Добыча золота',  d: '+15% золота за рейс', ic: '⛏️' },
+  mine:   { n: 'Добыча золота',  d: '+20% золота за рейс', ic: '⛏️' },
   dmg:    { n: 'Острое оружие',  d: '+8% урона армии', ic: '⚔️' },
   hp:     { n: 'Крепкая броня',  d: '+8% здоровья армии', ic: '🛡️' },
   secret: { n: 'Тайные лучники', d: '+2 лучника в крепости (при отступлении)', ic: '🏹' }
@@ -288,13 +288,46 @@ function buildHUD() {
     const b = h('<div class="ic">' + ic + '</div>' + nm, 'stbtn'); b.style.left = (990 + i * 95) + 'px'; b.onpointerdown = (e) => { e.preventDefault(); setStance(id); };
     hud.appendChild(b); hudRef.st[id] = b;
   });
+  buildUpPanel();
   // scroll buttons
   const l = h('◀', 'scrollhint'); l.style.left = '10px'; l.style.bottom = '112px'; const r = h('▶', 'scrollhint'); r.style.right = '10px'; r.style.bottom = '112px';
   l.onpointerdown = () => keys.left = true; r.onpointerdown = () => keys.right = true;
   hud.append(l, r);
 }
+const BU = {
+  mine:   { ic: '⛏️', n: 'Шахтёры', d: '+20% золота за рейс', base: 150, max: 5 },
+  dmg:    { ic: '⚔️', n: 'Оружие', d: '+10% урона армии', base: 200, max: 5 },
+  hp:     { ic: '🛡️', n: 'Броня', d: '+10% здоровья армии', base: 200, max: 5 },
+  statue: { ic: '🗿', n: 'Статуя', d: '+300 прочности и ремонт', base: 250, max: 5 },
+  prod:   { ic: '🏭', n: 'Казармы', d: 'Воины создаются на 12% быстрее', base: 200, max: 5 }
+};
+function buyUp(k) {
+  if (!B || B.over) return; const U = BU[k], l = B.bu[k];
+  if (l >= U.max) return note('Максимальный уровень'); const cost = U.base * (l + 1);
+  if (B.gold < cost) return note('Не хватает золота');
+  B.gold -= cost; B.bu[k]++; sfx('coin');
+  if (k === 'hp') { B.pm.hp *= 1.1; for (const u of B.units) if (u.team === 0) { u.hp *= 1.1; u.max *= 1.1; } }
+  else if (k === 'statue') { B.ps.max += 300; B.ps.hp = Math.min(B.ps.max, B.ps.hp + 300); }
+  else if (k === 'prod') B.prodMul = Math.pow(0.88, B.bu.prod);
+  B.texts.push({ x: B.ps.x, y: GROUND - 300, t: 1.6, s: '⬆ ' + U.n + ' ур.' + B.bu[k], c: '#1c8a30' });
+}
+function buildUpPanel() {
+  hudRef.upP = h('<div style="font-family:Impact;font-size:26px;letter-spacing:2px;margin-bottom:6px">⬆ ПРОКАЧКА <span style="font-size:14px;color:#777">(U)</span></div>', 'uppanel hidden'); hudRef.upRows = {};
+  for (const k in BU) {
+    const U = BU[k], r = h('<div class="ic">' + U.ic + '</div><div class="tx"><b>' + U.n + '</b><br><small>' + U.d + '</small><div class="pips"></div></div>', 'uprow');
+    const b = btn('', 'shop small', () => buyUp(k)); b.style.minWidth = '92px'; r.appendChild(b); hudRef.upP.appendChild(r); hudRef.upRows[k] = { b, pips: r.querySelector('.pips') };
+  }
+  hud.appendChild(hudRef.upP);
+  const tb = btn('⬆ Прокачка', 'shop small', () => hudRef.upP.classList.toggle('hidden')); tb.style.cssText += ';position:absolute;left:10px;top:56px;min-width:0;padding:0 14px'; hud.appendChild(tb);
+}
+function updUpPanel() {
+  for (const k in BU) { const U = BU[k], l = B.bu[k], r = hudRef.upRows[k], cost = U.base * (l + 1);
+    r.b.innerHTML = l >= U.max ? 'МАКС' : '🪙 ' + cost; r.b.classList.toggle('off', l < U.max && B.gold < cost);
+    r.pips.innerHTML = '●'.repeat(l) + '<span style="color:#ccc">' + '●'.repeat(U.max - l) + '</span>'; }
+}
 function updHUD() {
   if (!B) return;
+  if (!hudRef.upP.classList.contains('hidden')) updUpPanel();
   hudRef.gold.lastChild.textContent = Math.floor(B.gold); hudRef.pop.lastChild.textContent = popUsed() + '/' + POPCAP;
   hudRef.mode.textContent = B.mode === 'zombie' ? '🧟 Волна ' + B.z.wave + ' · убито ' + B.kills : B.mode === 'skirm' ? '🎮 Бой · ' + ['Лёгкий', 'Средний', 'Сложный'][B.cfg.diff] : B.mode === 'tour' ? '🏆 ' + TOUR[B.cfg.round].n + ' (' + (B.cfg.round + 1) + '/3)' : 'Ур.' + (B.cfg.level + 1) + ' · ' + LEVELS[B.cfg.level].n;
   for (const t of UORDER) {
@@ -302,7 +335,7 @@ function updHUD() {
     r.lk.style.display = locked ? 'flex' : 'none';
     r.b.classList.toggle('no', !locked && (B.gold < d.cost || popUsed() + d.pop > POPCAP));
     const n = B.queue.filter(q => q === t).length; r.q.style.display = n ? 'block' : 'none'; r.q.textContent = n;
-    r.pr.style.width = (B.queue[0] === t ? (1 - B.qt / d.spawn) * 100 : 0) + '%';
+    r.pr.style.width = (B.queue[0] === t ? (1 - B.qt / spT(t)) * 100 : 0) + '%';
   }
   const CD = { rain: 30, heal: 22, rage: 40, summon: 45 };
   for (const id in hudRef.sp) hudRef.sp[id].style.height = (B.cd[id] > 0 ? B.cd[id] / CD[id] * 100 : 0) + '%';
@@ -311,6 +344,7 @@ function updHUD() {
 
 /* ============ BATTLE ============ */
 let B = null, scene = 'menu', keys = {};
+const spT = t => UNITS[t].spawn * B.prodMul;
 function popUsed() { let n = 0; for (const u of B.units) if (u.team === 0 && !u.dead) n += UNITS[u.type].pop; for (const q of B.queue) n += UNITS[q].pop; return n; }
 function note(t) { sfx('err'); toast(t); }
 
@@ -340,11 +374,11 @@ function startTour(r) { const T = TOUR[r]; beginBattle({ mode: 'tour', round: r,
 function beginBattle(cfg) {
   const up = SAVE.up, sk = SKINS[SAVE.skin].perk, smax = 1500 + up.statue * 350;
   B = { cfg, mode: cfg.mode, world: cfg.world, cam: 0, time: 0, units: [], corpses: [], proj: [], fx: [], texts: [], gold: cfg.gold, queue: [], qt: 0, stance: 'defend', over: null, overT: 0, paused: false, speed: 1, idc: 0,
-    rain: null, rageT: 0, cd: { rain: 0, heal: 0, rage: 0, summon: 0 }, kills: 0, shake: 0, secretT: 0, ended: false,
-    pm: { hp: (1 + up.hp * 0.08) * (1 + (sk.hp || 0)), dmg: (1 + up.dmg * 0.08) * (1 + (sk.dmg || 0)), spd: 1 + (sk.spd || 0), rng: 1 + (sk.rng || 0), gold: (1 + up.mine * 0.15) * (1 + (sk.gold || 0)) },
+    bu: { mine: 0, dmg: 0, hp: 0, statue: 0, prod: 0 }, prodMul: 1, rain: null, rageT: 0, cd: { rain: 0, heal: 0, rage: 0, summon: 0 }, kills: 0, shake: 0, secretT: 0, ended: false,
+    pm: { hp: (1 + up.hp * 0.08) * (1 + (sk.hp || 0)), dmg: (1 + up.dmg * 0.08) * (1 + (sk.dmg || 0)), spd: 1 + (sk.spd || 0), rng: 1 + (sk.rng || 0), gold: (1 + up.mine * 0.2) * (1 + (sk.gold || 0)) },
     em: { hp: cfg.emHp || 1, dmg: cfg.emDmg || 1, spd: 1, rng: 1 },
     ps: { x: 170, hp: smax, max: smax, flash: 0 }, es: cfg.mode === 'zombie' ? null : { x: cfg.world - 170, hp: cfg.eHp, max: cfg.eHp, flash: 0 }, enemy: null, z: null };
-  if (B.es) B.enemy = { gold: cfg.egold, inc: cfg.inc, pool: cfg.pool, delay: cfg.delay, timer: 6, next: null, stance: 'defend', thr: cfg.thr, popCap: cfg.epop, minerTarget: Math.max(2, Math.round(cfg.inc * 0.7 / 1.5)), mt: 0, up: { statue: 0, dmg: 0, hp: 0 }, upT: 10 };
+  if (B.es) B.enemy = { gold: cfg.egold, inc: cfg.inc, pool: cfg.pool, delay: cfg.delay, timer: 6, next: null, stance: 'defend', thr: cfg.thr, popCap: cfg.epop, minerTarget: Math.max(2, Math.round(cfg.inc * 0.7 / 2.7)), mt: 0, up: { statue: 0, dmg: 0, hp: 0 }, upT: 10 };
   if (B.enemy) for (let i = 0; i < 2; i++) spawnUnit('miner', 1, B.es.x - 70 - i * 30);
   if (B.mode === 'zombie') B.z = { wave: 0, queue: [], t: 3, sp: 0 };
   spawnUnit('miner', 0, B.ps.x + 120); spawnUnit('miner', 0, B.ps.x + 160);
@@ -399,7 +433,7 @@ function moveTo(u, tx, spd, dt) {
 }
 function attack(u, tgt, statueTeam) {
   const d = UNITS[u.type]; u.cd = d.cd; u.atk = 0;
-  const dmg = u.dmg * (u.team === 0 && B.rageT > 0 ? 1.6 : 1);
+  const dmg = u.dmg * (u.team === 0 ? (B.rageT > 0 ? 1.6 : 1) * (1 + 0.1 * B.bu.dmg) : 1);
   const tx = tgt ? tgt.x : (statueTeam === 1 ? B.es.x : B.ps.x);
   u.dir = tx > u.x ? 1 : -1;
   if (u.type === 'archer') { arrow(u.x + u.dir * 14, u.y - 58, tx, u.team, dmg); return; }
@@ -422,8 +456,8 @@ function updateMiner(u, dt) {
   else if (u.state === 'mine') { u.mine = true; u.moving = false; u.dir = face; u.mt -= dt; if (u.mt <= 0) { u.state = 'toBase'; u.carry = true; } }
   else if (moveTo(u, dropX, u.speed, dt)) {
     u.carry = false; u.state = 'toMine';
-    if (mine0) { const g = Math.round(14 * B.pm.gold); B.gold += g; sfx('coin'); B.texts.push({ x: u.x, y: u.y - 90, t: 1, s: '+' + g, c: '#b88a00' }); }
-    else if (B.enemy) B.enemy.gold += 14;
+    if (mine0) { const g = Math.round(25 * B.pm.gold * (1 + 0.2 * B.bu.mine)); B.gold += g; sfx('coin'); B.texts.push({ x: u.x, y: u.y - 90, t: 1, s: '+' + g, c: '#b88a00' }); }
+    else if (B.enemy) B.enemy.gold += 25;
   }
 }
 function updateUnit(u, dt) {
@@ -521,7 +555,7 @@ function buy(type) {
   if (B.gold < d.cost) return note('Не хватает золота');
   if (popUsed() + d.pop > POPCAP) return note('Лимит армии');
   if (B.queue.length >= 6) return note('Очередь полна');
-  B.gold -= d.cost; B.queue.push(type); if (B.queue.length === 1) B.qt = d.spawn; sfx('ui');
+  B.gold -= d.cost; B.queue.push(type); if (B.queue.length === 1) B.qt = spT(type); sfx('ui');
 }
 function cast(id) {
   if (!B || B.over || B.paused) return;
@@ -583,7 +617,7 @@ function finishBattle() {
 function updateBattle(dt) {
   B.time += dt;
   if (!B.over) {
-    if (B.queue.length) { B.qt -= dt; if (B.qt <= 0) { const t = B.queue.shift(); spawnUnit(t, 0, B.ps.x + 70); B.qt = B.queue.length ? UNITS[B.queue[0]].spawn : 0; } }
+    if (B.queue.length) { B.qt -= dt; if (B.qt <= 0) { const t = B.queue.shift(); spawnUnit(t, 0, B.ps.x + 70); B.qt = B.queue.length ? spT(B.queue[0]) : 0; } }
     for (const k in B.cd) if (B.cd[k] > 0) B.cd[k] -= dt;
     if (B.rageT > 0) B.rageT -= dt;
     enemyAI(dt); zombieAI(dt);
@@ -715,6 +749,7 @@ addEventListener('keydown', e => {
   const m = /^Digit(\d)$/.exec(e.code); if (m) { const t = UORDER[+m[1] - 1]; if (t) buy(t); }
   if (e.code === 'KeyQ') cast('rain'); if (e.code === 'KeyW') cast('heal'); if (e.code === 'KeyE') cast('rage'); if (e.code === 'KeyR') cast('summon');
   if (e.code === 'KeyZ') setStance('defend'); if (e.code === 'KeyX') setStance('attack'); if (e.code === 'KeyC') setStance('garrison');
+  if (e.code === 'KeyU') hudRef.upP.classList.toggle('hidden');
   if (e.code === 'Space') { e.preventDefault(); setPause(!B.paused); }
 });
 addEventListener('keyup', e => { if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = false; if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = false; });
