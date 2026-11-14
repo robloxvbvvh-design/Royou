@@ -344,7 +344,8 @@ function beginBattle(cfg) {
     pm: { hp: (1 + up.hp * 0.08) * (1 + (sk.hp || 0)), dmg: (1 + up.dmg * 0.08) * (1 + (sk.dmg || 0)), spd: 1 + (sk.spd || 0), rng: 1 + (sk.rng || 0), gold: (1 + up.mine * 0.15) * (1 + (sk.gold || 0)) },
     em: { hp: cfg.emHp || 1, dmg: cfg.emDmg || 1, spd: 1, rng: 1 },
     ps: { x: 170, hp: smax, max: smax, flash: 0 }, es: cfg.mode === 'zombie' ? null : { x: cfg.world - 170, hp: cfg.eHp, max: cfg.eHp, flash: 0 }, enemy: null, z: null };
-  if (B.es) B.enemy = { gold: cfg.egold, inc: cfg.inc, pool: cfg.pool, delay: cfg.delay, timer: 6, next: null, stance: 'defend', thr: cfg.thr, popCap: cfg.epop };
+  if (B.es) B.enemy = { gold: cfg.egold, inc: cfg.inc, pool: cfg.pool, delay: cfg.delay, timer: 6, next: null, stance: 'defend', thr: cfg.thr, popCap: cfg.epop, minerTarget: Math.max(2, Math.round(cfg.inc * 0.7 / 1.5)), mt: 0, up: { statue: 0, dmg: 0, hp: 0 }, upT: 10 };
+  if (B.enemy) for (let i = 0; i < 2; i++) spawnUnit('miner', 1, B.es.x - 70 - i * 30);
   if (B.mode === 'zombie') B.z = { wave: 0, queue: [], t: 3, sp: 0 };
   spawnUnit('miner', 0, B.ps.x + 120); spawnUnit('miner', 0, B.ps.x + 160);
   buildHUD(); show('hud'); scene = 'battle'; hudRef.spdB.textContent = 'x1';
@@ -414,13 +415,15 @@ function attack(u, tgt, statueTeam) {
 }
 
 function updateMiner(u, dt) {
-  const mineX = B.ps.x + 340 + (u.id % 3) * 16 - 16, dropX = B.ps.x + 70;
+  const mine0 = u.team === 0, face = mine0 ? 1 : -1;
+  const mineX = mine0 ? B.ps.x + 340 + (u.id % 3) * 16 - 16 : B.es.x - 340 - (u.id % 3) * 16 + 16, dropX = mine0 ? B.ps.x + 70 : B.es.x - 70;
   u.mine = false;
-  if (u.state === 'toMine') { if (moveTo(u, mineX, u.speed, dt)) { u.state = 'mine'; u.mt = 1.4; u.dir = 1; } }
-  else if (u.state === 'mine') { u.mine = true; u.moving = false; u.dir = 1; u.mt -= dt; if (u.mt <= 0) { u.state = 'toBase'; u.carry = true; } }
+  if (u.state === 'toMine') { if (moveTo(u, mineX, u.speed, dt)) { u.state = 'mine'; u.mt = 1.4; u.dir = face; } }
+  else if (u.state === 'mine') { u.mine = true; u.moving = false; u.dir = face; u.mt -= dt; if (u.mt <= 0) { u.state = 'toBase'; u.carry = true; } }
   else if (moveTo(u, dropX, u.speed, dt)) {
-    const g = Math.round(14 * B.pm.gold); B.gold += g; u.carry = false; u.state = 'toMine'; sfx('coin');
-    B.texts.push({ x: u.x, y: u.y - 90, t: 1, s: '+' + g, c: '#b88a00' });
+    u.carry = false; u.state = 'toMine';
+    if (mine0) { const g = Math.round(14 * B.pm.gold); B.gold += g; sfx('coin'); B.texts.push({ x: u.x, y: u.y - 90, t: 1, s: '+' + g, c: '#b88a00' }); }
+    else if (B.enemy) B.enemy.gold += 14;
   }
 }
 function updateUnit(u, dt) {
@@ -429,7 +432,7 @@ function updateUnit(u, dt) {
   if (u.life !== undefined) { u.life -= dt; if (u.life <= 0) { u.dead = true; return; } }
   if (u.hidden) return;
   const d = UNITS[u.type], spd = u.speed * (u.team === 0 && B.rageT > 0 ? 1.25 : 1);
-  if (u.type === 'miner' && u.team === 0) return updateMiner(u, dt);
+  if (u.type === 'miner') return updateMiner(u, dt);
   u.moving = false;
   const own = u.team === 0 ? B.ps : B.es, foe = u.team === 0 ? B.es : B.ps;
   const aggro = u.zomb || u.life !== undefined;
@@ -467,14 +470,30 @@ function updateUnit(u, dt) {
   }
 }
 
+const EUP = { statue: { n: 'статую', base: 300, max: 4 }, dmg: { n: 'оружие', base: 250, max: 4 }, hp: { n: 'броню', base: 250, max: 4 } };
 function enemyAI(dt) {
   const e = B.enemy; if (!e || B.over) return;
-  e.gold += e.inc * dt; e.timer -= dt;
-  let cnt = 0, pop = 0;
-  for (const u of B.units) if (u.team === 1 && !u.dead && u.life === undefined) { cnt++; pop += UNITS[u.type].pop; }
+  e.gold += e.inc * 0.4 * dt; e.timer -= dt; e.upT -= dt;
+  let cnt = 0, pop = 0, miners = 0;
+  for (const u of B.units) if (u.team === 1 && !u.dead && u.life === undefined) { if (u.type === 'miner') miners++; else { cnt++; pop += UNITS[u.type].pop; } }
+  // economy: keep enough real miners working in the enemy mine
+  if (miners < e.minerTarget && e.gold >= 100 && e.mt <= 0) { e.gold -= 100; spawnUnit('miner', 1, B.es.x - 70); e.mt = 3; }
+  e.mt -= dt;
+  // base upgrades: statue, weapons, armor (enemy saves gold for them once it has a small army)
+  if (e.upT <= 0 && miners >= Math.min(2, e.minerTarget) && (cnt >= 2 || e.gold >= 400)) {
+    if (!e.saving) { const ks = Object.keys(EUP).filter(k => e.up[k] < EUP[k].max); if (ks.length) { const k = ks[Math.floor(Math.random() * ks.length)]; e.saving = { k, until: B.time + 28 }; } else e.upT = 999; }
+    if (e.saving) {
+      const k = e.saving.k, U = EUP[k], cost = U.base * (e.up[k] + 1);
+      if (e.gold >= cost) {
+        e.gold -= cost; e.up[k]++; e.saving = null; e.upT = rand(10, 18);
+        if (k === 'statue') { B.es.max += 300; B.es.hp = Math.min(B.es.max, B.es.hp + 300); } else if (k === 'dmg') B.em.dmg += 0.07; else B.em.hp += 0.07;
+        B.texts.push({ x: B.es.x, y: GROUND - 300, t: 2.2, s: '⬆ Враг улучшил ' + U.n, c: '#c8201a' }); toast('⚠ Враг улучшил ' + U.n + ' (ур. ' + e.up[k] + ')'); sfx('ui');
+      } else if (B.time > e.saving.until) { e.saving = null; e.upT = rand(10, 18); }
+    }
+  }
   if (!e.next) { const tot = e.pool.reduce((a, p) => a + p[1], 0); let r = Math.random() * tot; for (const p of e.pool) { r -= p[1]; if (r <= 0) { e.next = p[0]; break; } } e.next = e.next || e.pool[0][0]; }
   const d = UNITS[e.next];
-  if (e.timer <= 0 && e.gold >= d.cost && pop + d.pop <= e.popCap) { e.gold -= d.cost; spawnUnit(e.next, 1, B.es.x - 60); e.next = null; e.timer = e.delay * rand(0.8, 1.2); }
+  if (e.timer <= 0 && !e.saving && e.gold >= d.cost && pop + d.pop <= e.popCap) { e.gold -= d.cost; spawnUnit(e.next, 1, B.es.x - 60); e.next = null; e.timer = e.delay * rand(0.8, 1.2); }
   if (e.stance === 'defend' && cnt >= e.thr) e.stance = 'attack';
   else if (e.stance === 'attack' && cnt <= Math.floor(e.thr / 3)) e.stance = 'defend';
 }
@@ -625,7 +644,7 @@ function drawBattle() {
   if (B.shake > 0.2) c.translate(rand(-B.shake, B.shake), rand(-B.shake, B.shake) * 0.6);
   c.translate(-cam, 0);
   drawMine(c, B.ps.x + 340, B.time, 0);
-  if (B.es) { drawMine(c, B.es.x - 340, B.time, 1); for (let i = 0; i < 3; i++) drawStick(c, { x: B.es.x - 340 + (i - 1) * 24, y: GROUND + 4, s: 1, type: 'miner', team: 1, dir: -1, mine: true, t: B.time + i * 0.4 }); }
+  if (B.es) { drawMine(c, B.es.x - 340, B.time, 1); }
   drawCastle(c, B.ps.x, B.stance === 'garrison', B.time);
   if (B.ps.hp > 0 || B.over !== 'lose') drawStatue(c, B.ps.x, 0, B.ps.hp / B.ps.max, { shake: B.ps.flash > 0 });
   if (B.es && (B.es.hp > 0 || B.over !== 'win')) drawStatue(c, B.es.x, 1, B.es.hp / B.es.max, { shake: B.es.flash > 0, big: !!(B.cfg.level === 5) });
