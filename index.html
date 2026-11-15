@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Взлом пароля</title>
+<style>
+  :root{--bg:#0a0f0a;--fg:#39ff7a;--dim:#1c5c34;--yellow:#ffd23f;--red:#ff4d4d;}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:var(--bg);color:var(--fg);font-family:"Courier New",monospace;
+       display:flex;justify-content:center;padding:16px}
+  main{width:100%;max-width:460px;text-align:center}
+  h1{letter-spacing:4px;text-shadow:0 0 10px var(--fg);margin:8px 0}
+  p.sub{color:#8fdcab;margin:0 0 16px;font-size:14px}
+  .row{display:flex;gap:6px;justify-content:center;margin:6px 0}
+  .cell{width:48px;height:56px;border:2px solid var(--dim);display:flex;align-items:center;justify-content:center;
+        font-size:28px;font-weight:bold;text-transform:uppercase}
+  .cell.ok{background:var(--fg);color:#000;border-color:var(--fg)}
+  .cell.mid{background:var(--yellow);color:#000;border-color:var(--yellow)}
+  .cell.no{background:#1a1f1a;color:#556;border-color:#223}
+  .cell.cur{border-color:var(--fg)}
+  #msg{min-height:28px;margin:14px 0;font-size:18px}
+  .win{color:var(--fg)}.lose{color:var(--red)}
+  .kb{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;margin-top:10px}
+  .kb button{min-width:30px;padding:10px 6px;background:#0f1a12;color:var(--fg);border:1px solid var(--dim);
+             font:inherit;font-size:16px;cursor:pointer;border-radius:4px}
+  .kb button.ok{background:var(--fg);color:#000}.kb button.mid{background:var(--yellow);color:#000}
+  .kb button.no{opacity:.25}.kb button.wide{min-width:70px}
+  #again{display:none;margin-top:12px;padding:10px 20px;background:var(--fg);color:#000;border:0;font:inherit;
+         font-weight:bold;cursor:pointer;border-radius:4px}
+</style>
+</head>
+<body>
+<main>
+  <h1>🔐 ВЗЛОМ ПАРОЛЯ</h1>
+  <p class="sub">Угадай секретный пароль из 6 букв за 6 попыток.<br>
+  🟩 буква на месте · 🟨 есть в пароле, но в другом месте · ⬛ нет в пароле</p>
+  <div id="board"></div>
+  <div id="msg"></div>
+  <div class="kb" id="kb"></div>
+  <button id="again">Играть снова</button>
+</main>
+<script>
+// Секретные пароли (в base64, чтобы не бросались в глаза). Каждый раунд выбирается случайный.
+const SECRETS = ["КОМЕТА","ПЛАНЕТ","ОРБИТА","РАКЕТА","ЗВЕЗДА","МЕТЕОР"]
+  .map(w=>btoa(unescape(encodeURIComponent(w))));
+const LEN=6, TRIES=6;
+const dec=s=>decodeURIComponent(escape(atob(s)));
+let secret, guesses, cur, over;
+const board=document.getElementById('board'), msg=document.getElementById('msg'),
+      kb=document.getElementById('kb'), again=document.getElementById('again');
+
+function start(){
+  // Основной пароль игры — КОМЕТА (первый раунд), дальше случайные
+  secret = dec(start.first ? SECRETS[Math.floor(Math.random()*SECRETS.length)] : SECRETS[0]);
+  start.first = true;
+  guesses=[]; cur=''; over=false; msg.textContent=''; msg.className=''; again.style.display='none';
+  buildKb(); render();
+}
+function buildKb(){
+  kb.innerHTML='';
+  "ЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮ".split('').forEach(ch=>{
+    const b=document.createElement('button'); b.textContent=ch; b.dataset.k=ch; b.onclick=()=>press(ch); kb.append(b);
+  });
+  const e=document.createElement('button'); e.textContent='ВВОД'; e.className='wide'; e.onclick=submit; kb.append(e);
+  const d=document.createElement('button'); d.textContent='⌫'; d.className='wide'; d.onclick=back; kb.append(d);
+}
+function score(g){
+  const res=Array(LEN).fill('no'), left={};
+  for(let i=0;i<LEN;i++){ if(g[i]===secret[i]) res[i]='ok'; else left[secret[i]]=(left[secret[i]]||0)+1; }
+  for(let i=0;i<LEN;i++){ if(res[i]!=='ok' && left[g[i]]>0){ res[i]='mid'; left[g[i]]--; } }
+  return res;
+}
+function render(){
+  board.innerHTML='';
+  for(let r=0;r<TRIES;r++){
+    const row=document.createElement('div'); row.className='row';
+    const g=guesses[r], isCur=r===guesses.length&&!over;
+    const sc=g?score(g):null;
+    for(let i=0;i<LEN;i++){
+      const c=document.createElement('div'); c.className='cell';
+      if(g){c.textContent=g[i]; c.classList.add(sc[i]);}
+      else if(isCur){c.textContent=cur[i]||''; if(i===cur.length)c.classList.add('cur');}
+      row.append(c);
+    }
+    board.append(row);
+  }
+  // клавиатура
+  const best={};
+  guesses.forEach(g=>score(g).forEach((s,i)=>{const k=g[i]; const rank={no:0,mid:1,ok:2};
+    if(best[k]===undefined||rank[s]>rank[best[k]])best[k]=s;}));
+  kb.querySelectorAll('button[data-k]').forEach(b=>{b.className=best[b.dataset.k]||'';});
+}
+function press(ch){ if(over||cur.length>=LEN)return; cur+=ch; render(); }
+function back(){ if(over)return; cur=cur.slice(0,-1); render(); }
+function submit(){
+  if(over)return;
+  if(cur.length<LEN){ msg.textContent='Нужно '+LEN+' букв'; msg.className='lose'; return; }
+  guesses.push(cur);
+  if(cur===secret){ over=true; msg.textContent='🔓 Доступ открыт! Пароль: '+secret; msg.className='win'; }
+  else if(guesses.length>=TRIES){ over=true; msg.textContent='🔒 Взлом не удался. Пароль был: '+secret; msg.className='lose'; }
+  else { msg.textContent=''; }
+  cur=''; render();
+  if(over) again.style.display='inline-block';
+}
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter')submit();
+  else if(e.key==='Backspace')back();
+  else{ const ch=e.key.toUpperCase().replace('Ё','Е'); if(/^[А-Я]$/.test(ch))press(ch); }
+});
+again.onclick=start;
+start();
+</script>
+</body>
+</html>
