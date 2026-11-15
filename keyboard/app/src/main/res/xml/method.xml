@@ -2,7 +2,6 @@
 <input-method xmlns:android="http://schemas.android.com/apk/res/android"
     android:settingsActivity="com.royou.keyboard.SettingsActivity">
     <subtype
-        android:label="Русский / English"
-        android:imeSubtypeLocale="ru"
+        android:label="Royou"
         android:imeSubtypeMode="keyboard" />
 </input-method>

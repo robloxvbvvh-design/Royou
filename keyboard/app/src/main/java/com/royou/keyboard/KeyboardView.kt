@@ -2,13 +2,13 @@ package com.royou.keyboard
 
 import android.content.Context
 import android.graphics.Color
-import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.TextView
 
@@ -18,24 +18,23 @@ class KeyboardView(context: Context, private val listener: Listener) : LinearLay
         fun onText(text: String)
         fun onDelete()
         fun onEnter()
-        fun onPickIme()
+        fun onCycleLang()
+        fun onLangPanel()
     }
 
-    enum class Mode { RU, EN, SYM }
+    private enum class Mode { LETTERS, SYM }
 
     private val prefs = Prefs(context)
     private val handler = Handler(Looper.getMainLooper())
-    private var mode = Mode.RU
-    private var lastLetterMode = Mode.RU
+    private var mode = Mode.LETTERS
+    var lang: Lang = Languages.byCode("en")
+        set(v) { field = v; mode = Mode.LETTERS; rebuild() }
     var shift = false
         private set
     private var caps = false
     private var lastShiftTap = 0L
 
-    init {
-        orientation = VERTICAL
-        rebuild()
-    }
+    init { orientation = VERTICAL; rebuild() }
 
     fun setShift(on: Boolean) {
         if (caps) return
@@ -45,38 +44,69 @@ class KeyboardView(context: Context, private val listener: Listener) : LinearLay
     fun rebuild() {
         removeAllViews()
         val dark = prefs.dark
-        setBackgroundColor(if (dark) 0xFF1E1F22.toInt() else 0xFFD9DCE1.toInt())
+        setBackgroundColor(Ui.bg(dark))
         val pad = dp(4)
         setPadding(pad, pad, pad, pad)
+        val h = dp(prefs.keyHeight)
 
-        val rows = when (mode) { Mode.RU -> Layouts.ru; Mode.EN -> Layouts.en; Mode.SYM -> Layouts.sym }
-        for (row in rows) {
-            val r = newRow()
-            for (ch in row) {
-                when (ch) {
-                    '⇧' -> r.addView(key(if (caps) "⇪" else "⇧", 1.5f, special = true, active = shift || caps) { onShift() })
-                    '⌫' -> r.addView(key("⌫", 1.5f, special = true, repeat = true) { listener.onDelete() })
-                    else -> {
-                        val s = if (shift || caps) ch.uppercase() else ch.toString()
-                        r.addView(key(s, 1f) { listener.onText(s); if (shift && !caps) { shift = false; rebuild() } })
-                    }
+        // цифры
+        addView(newRow((h * 0.8f).toInt()).also { r ->
+            "1234567890".forEach { d -> r.addView(key(d.toString(), 1f, small = true) { listener.onText(d.toString()) }) }
+        })
+
+        if (mode == Mode.LETTERS) {
+            val rows = lang.rows
+            rows.forEachIndexed { i, row ->
+                val r = newRow(h)
+                val last = i == rows.size - 1
+                if (last) r.addView(key(if (caps) "⇪" else "⇧", 1.4f, special = true, active = shift || caps) { onShift() })
+                for (ch in row) {
+                    val s = if (shift || caps) ch.toString().uppercase() else ch.toString()
+                    r.addView(key(s, 1f) { listener.onText(s); if (shift && !caps) { shift = false; rebuild() } })
                 }
+                if (last) r.addView(key("⌫", 1.4f, special = true, repeat = true) { listener.onDelete() })
+                addView(r)
             }
-            addView(r)
+            if (lang.extra.isNotEmpty()) addView(extraStrip(h))
+        } else {
+            val rows = listOf("@#₽_&-+()/", "*\"':;!?=%~", "<>[]{}\\|^`")
+            rows.forEachIndexed { i, row ->
+                val r = newRow(h)
+                for (ch in row) r.addView(key(ch.toString(), 1f) { listener.onText(ch.toString()) })
+                if (i == rows.size - 1) r.addView(key("⌫", 1.4f, special = true, repeat = true) { listener.onDelete() })
+                addView(r)
+            }
         }
 
-        val bottom = newRow()
-        bottom.addView(key(if (mode == Mode.SYM) "АБВ" else "?123", 1.5f, special = true) {
-            if (mode == Mode.SYM) mode = lastLetterMode else { lastLetterMode = mode; mode = Mode.SYM }
-            rebuild()
+        val bottom = newRow(h)
+        bottom.addView(key(if (mode == Mode.SYM) "ABC" else "?123", 1.4f, special = true) {
+            mode = if (mode == Mode.SYM) Mode.LETTERS else Mode.SYM; rebuild()
         })
         bottom.addView(globe())
-        bottom.addView(key(",", 1f) { listener.onText(",") })
-        bottom.addView(key(if (mode == Mode.EN) "English" else "Русский", 4f) { listener.onText(" ") })
-        bottom.addView(key(".", 1f) { listener.onText(".") })
-        bottom.addView(key("⏎", 1.5f, special = true, accent = true) { listener.onEnter() })
+        bottom.addView(key(",", 0.8f) { listener.onText(",") })
+        bottom.addView(key(lang.name, 4f, small = lang.name.length > 8) { listener.onText(" ") })
+        bottom.addView(key(".", 0.8f) { listener.onText(".") })
+        bottom.addView(key("⏎", 1.4f, special = true, accent = true) { listener.onEnter() })
         addView(bottom)
     }
+
+    private fun extraStrip(h: Int): View {
+        val inner = LinearLayout(context).apply { orientation = HORIZONTAL }
+        for (ch in lang.extra) {
+            val s = if (shift || caps) ch.toString().uppercase() else ch.toString()
+            inner.addView(key(s, 0f) { listener.onText(s) }.also {
+                it.layoutParams = LayoutParams(dp(40), LayoutParams.MATCH_PARENT).apply { setMargins(dp(2), dp(3), dp(2), dp(3)) }
+            })
+        }
+        return HorizontalScrollView(context).apply {
+            isHorizontalScrollBarEnabled = false
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, (h * 0.85f).toInt())
+            addView(inner, FrameLayoutParams())
+        }
+    }
+
+    private fun FrameLayoutParams() = android.widget.FrameLayout.LayoutParams(
+        android.widget.FrameLayout.LayoutParams.WRAP_CONTENT, android.widget.FrameLayout.LayoutParams.MATCH_PARENT)
 
     private fun onShift() {
         val now = System.currentTimeMillis()
@@ -87,51 +117,48 @@ class KeyboardView(context: Context, private val listener: Listener) : LinearLay
         rebuild()
     }
 
-    private fun newRow() = LinearLayout(context).apply {
+    private fun newRow(height: Int) = LinearLayout(context).apply {
         orientation = HORIZONTAL
-        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dp(prefs.keyHeight))
+        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, height)
     }
 
     private fun globe(): View = base("🌐", 1f, special = true).apply {
-        setOnClickListener { haptic(); mode = if (mode == Mode.RU) Mode.EN else Mode.RU; lastLetterMode = mode; rebuild() }
-        setOnLongClickListener { listener.onPickIme(); true }
+        setOnClickListener { haptic(); listener.onCycleLang() }
+        setOnLongClickListener { listener.onLangPanel(); true }
     }
 
-    private fun base(label: String, weight: Float, special: Boolean = false, accent: Boolean = false, active: Boolean = false): TextView {
+    private fun base(label: String, weight: Float, special: Boolean = false, accent: Boolean = false,
+                     active: Boolean = false, small: Boolean = false): TextView {
         val dark = prefs.dark
         val normal = when {
-            accent -> 0xFF3D7BFF.toInt()
+            accent -> Ui.ACCENT
             active -> if (dark) 0xFF6B6F78.toInt() else 0xFFB9BEC8.toInt()
-            special -> if (dark) 0xFF3A3C41.toInt() else 0xFFB4B9C2.toInt()
-            else -> if (dark) 0xFF4A4C52.toInt() else Color.WHITE
-        }
-        val pressed = if (dark) 0xFF70737B.toInt() else 0xFF9AA0AC.toInt()
-        fun shape(c: Int) = GradientDrawable().apply { setColor(c); cornerRadius = dp(6).toFloat() }
-        val bg = android.graphics.drawable.StateListDrawable().apply {
-            addState(intArrayOf(android.R.attr.state_pressed), shape(pressed))
-            addState(intArrayOf(), shape(normal))
+            special -> Ui.specialColor(dark)
+            else -> Ui.keyColor(dark)
         }
         return TextView(context).apply {
             text = label
             gravity = Gravity.CENTER
-            textSize = if (label.length > 2) 14f else 20f
-            setTextColor(if (accent) Color.WHITE else if (dark) Color.WHITE else Color.BLACK)
-            background = bg
+            textSize = if (small) 13f else if (label.length > 2) 14f else 20f
+            maxLines = 1
+            setTextColor(if (accent) Color.WHITE else Ui.fg(dark))
+            background = Ui.keyBg(context, normal, Ui.pressedColor(dark))
             layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, weight).apply { setMargins(dp(2), dp(3), dp(2), dp(3)) }
         }
     }
 
     private fun key(label: String, weight: Float, special: Boolean = false, accent: Boolean = false,
-                    active: Boolean = false, repeat: Boolean = false, action: () -> Unit): TextView {
-        val v = base(label, weight, special, accent, active)
+                    active: Boolean = false, repeat: Boolean = false, small: Boolean = false,
+                    action: () -> Unit): TextView {
+        val v = base(label, weight, special, accent, active, small)
         var rep: Runnable? = null
         v.setOnTouchListener { view, e ->
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     view.isPressed = true; haptic(); action()
                     if (repeat) {
-                        rep = object : Runnable { override fun run() { action(); handler.postDelayed(this, 50) } }
-                        handler.postDelayed(rep!!, 400)
+                        val r = object : Runnable { override fun run() { action(); handler.postDelayed(this, 50) } }
+                        rep = r; handler.postDelayed(r, 400)
                     }
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
@@ -144,11 +171,8 @@ class KeyboardView(context: Context, private val listener: Listener) : LinearLay
     }
 
     private fun haptic() {
-        if (prefs.haptic) performHapticFeedback(
-            HapticFeedbackConstants.KEYBOARD_TAP,
-            HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING
-        )
+        if (prefs.haptic) performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
     }
 
-    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+    private fun dp(v: Int) = Ui.dp(context, v)
 }
