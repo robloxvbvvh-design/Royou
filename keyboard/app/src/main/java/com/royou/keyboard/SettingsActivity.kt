@@ -132,11 +132,11 @@ class SettingsActivity : Activity() {
 
     private fun askMic() {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED)
-            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 1)
+            startActivity(Intent(this, MicPermissionActivity::class.java))
     }
 
-    override fun onRequestPermissionsResult(code: Int, perms: Array<out String>, res: IntArray) {
-        super.onRequestPermissionsResult(code, perms, res)
+    override fun onResume() {
+        super.onResume()
         updateMicInfo()
     }
 

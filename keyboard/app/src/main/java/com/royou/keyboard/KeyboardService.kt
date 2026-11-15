@@ -233,9 +233,8 @@ class KeyboardService : InputMethodService(), KeyboardView.Listener {
     private fun toggleVoice() {
         if (listening) { stopVoice(); return }
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            toast("Нужно разрешение на микрофон — открываю настройки приложения")
-            startActivity(Intent(this, SettingsActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).putExtra("mic", true))
+            toast("Разрешите доступ к микрофону в появившемся окне")
+            startActivity(Intent(this, MicPermissionActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             return
         }
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
