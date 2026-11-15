@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Я не робот</title>
+<style>
+  :root { --bg:#0f1420; --panel:#181f30; --ink:#e8ecf5; --dim:#8b95b0; --acc:#4f8cff; --ok:#3ecf8e; --bad:#ff5a6a; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; background:var(--bg); color:var(--ink); font-family:system-ui,Segoe UI,Roboto,sans-serif; display:flex; align-items:center; justify-content:center; padding:16px; }
+  .card { width:100%; max-width:460px; background:var(--panel); border-radius:14px; padding:24px; box-shadow:0 10px 40px rgba(0,0,0,.4); }
+  h1 { margin:0 0 4px; font-size:22px; }
+  .sub { color:var(--dim); font-size:14px; margin-bottom:18px; }
+  .bar { display:flex; gap:6px; margin-bottom:18px; }
+  .bar span { flex:1; height:6px; border-radius:3px; background:#2a3350; }
+  .bar span.done { background:var(--ok); }
+  .bar span.cur { background:var(--acc); }
+  .task { min-height:250px; }
+  .q { font-size:17px; margin-bottom:14px; line-height:1.4; }
+  button { font:inherit; color:var(--ink); background:#242d47; border:1px solid #33406a; border-radius:8px; padding:10px 14px; cursor:pointer; }
+  button:hover { border-color:var(--acc); }
+  button.primary { background:var(--acc); border-color:var(--acc); color:#fff; }
+  input[type=text] { font:inherit; width:100%; padding:10px; border-radius:8px; border:1px solid #33406a; background:#0f1420; color:var(--ink); }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:12px; }
+  .tile { aspect-ratio:1; border-radius:8px; border:2px solid transparent; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#242d47; }
+  .tile.sel { border-color:var(--acc); }
+  .msg { min-height:22px; margin-top:12px; font-size:14px; }
+  .msg.bad { color:var(--bad); } .msg.ok { color:var(--ok); }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .distort { font:700 34px/1 "Courier New",monospace; letter-spacing:6px; padding:14px; border-radius:8px; background:repeating-linear-gradient(45deg,#1d2640,#1d2640 6px,#222c4b 6px,#222c4b 12px); margin-bottom:12px; text-align:center; user-select:none; }
+  .distort i { display:inline-block; font-style:normal; }
+  #arena { position:relative; height:200px; background:#0f1420; border-radius:8px; overflow:hidden; cursor:crosshair; }
+  .dot { position:absolute; width:34px; height:34px; border-radius:50%; background:var(--acc); }
+  .slider { width:100%; }
+  .end { text-align:center; }
+  .end h2 { margin:6px 0; }
+  .stat { color:var(--dim); font-size:14px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Подтвердите, что вы не робот</h1>
+  <div class="sub">Пройдите 6 испытаний. Роботы здесь обычно сдаются.</div>
+  <div class="bar" id="bar"></div>
+  <div class="task" id="task"></div>
+  <div class="msg" id="msg"></div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const rnd = (a,b) => Math.floor(Math.random()*(b-a+1))+a;
+const pick = a => a[rnd(0,a.length-1)];
+const shuffle = a => a.map(v=>[Math.random(),v]).sort((x,y)=>x[0]-y[0]).map(x=>x[1]);
+
+let step = 0, mistakes = 0, startTime = Date.now();
+const stepStart = [];
+const humanSignals = { mouseMoves:0, keyPresses:0, trembleSamples:0 };
+
+addEventListener('mousemove', () => humanSignals.mouseMoves++);
+addEventListener('keydown', () => humanSignals.keyPresses++);
+
+function say(text, kind){ const m=$('#msg'); m.textContent=text||''; m.className='msg '+(kind||''); }
+function drawBar(){
+  $('#bar').innerHTML = tasks.map((_,i)=>`<span class="${i<step?'done':i===step?'cur':''}"></span>`).join('');
+}
+function pass(){
+  say('Верно.','ok');
+  step++;
+  setTimeout(()=>{ say(''); render(); }, 600);
+}
+function fail(text){ mistakes++; say(text||'Неверно. Попробуйте ещё раз.','bad'); }
+
+// SVG shapes for the picture task
+function shapeSvg(kind,color){
+  const c=`fill="${color}"`;
+  const m={
+    circle:`<circle cx="30" cy="30" r="22" ${c}/>`,
+    square:`<rect x="9" y="9" width="42" height="42" ${c}/>`,
+    triangle:`<polygon points="30,7 55,52 5,52" ${c}/>`,
+    star:`<polygon points="30,5 37,22 55,23 41,35 46,53 30,43 14,53 19,35 5,23 23,22" ${c}/>`
+  };
+  return `<svg viewBox="0 0 60 60" width="60%" height="60%">${m[kind]}</svg>`;
+}
+
+const tasks = [
+  // 1. Math with words
+  function math(){
+    const a=rnd(3,9), b=rnd(3,9), c=rnd(2,5);
+    const ans=a*b-c;
+    $('#task').innerHTML = `<div class="q">Сколько будет ${a} умножить на ${b}, минус ${c}?</div>
+      <input type="text" id="in" inputmode="numeric" autocomplete="off"><div style="margin-top:12px"><button class="primary" id="go">Проверить</button></div>`;
+    const check=()=>{ +$('#in').value===ans ? pass() : fail(); };
+    $('#go').onclick=check; $('#in').onkeydown=e=>{ if(e.key==='Enter') check(); }; $('#in').focus();
+  },
+
+  // 2. Distorted text
+  function text(){
+    const chars='ABCDEFGHJKLMNPRSTUVXYZ23456789';
+    let s=''; for(let i=0;i<5;i++) s+=pick([...chars]);
+    const html=[...s].map(ch=>`<i style="transform:rotate(${rnd(-22,22)}deg) translateY(${rnd(-5,5)}px);color:hsl(${rnd(180,260)},70%,${rnd(60,80)}%)">${ch}</i>`).join('');
+    $('#task').innerHTML = `<div class="q">Введите символы с картинки. Регистр не важен.</div>
+      <div class="distort">${html}</div><input type="text" id="in" autocomplete="off" maxlength="8">
+      <div style="margin-top:12px"><button class="primary" id="go">Проверить</button></div>`;
+    const check=()=>{ $('#in').value.trim().toUpperCase()===s ? pass() : fail(); };
+    $('#go').onclick=check; $('#in').onkeydown=e=>{ if(e.key==='Enter') check(); }; $('#in').focus();
+  },
+
+  // 3. Pick all tiles of a shape
+  function pictures(){
+    const kinds=['circle','square','triangle','star'];
+    const colors=['#ff6b6b','#ffd166','#4ecdc4','#a78bfa'];
+    const target=pick(kinds);
+    const names={circle:'кругами',square:'квадратами',triangle:'треугольниками',star:'звёздами'};
+    let tiles=[];
+    const need=rnd(3,4);
+    for(let i=0;i<need;i++) tiles.push({k:target,c:pick(colors)});
+    while(tiles.length<9) tiles.push({k:pick(kinds.filter(k=>k!==target)),c:pick(colors)});
+    tiles=shuffle(tiles);
+    const sel=new Set();
+    $('#task').innerHTML = `<div class="q">Выберите все плитки с ${names[target]}.</div>
+      <div class="grid">${tiles.map((t,i)=>`<div class="tile" data-i="${i}">${shapeSvg(t.k,t.c)}</div>`).join('')}</div>
+      <button class="primary" id="go">Проверить</button>`;
+    document.querySelectorAll('.tile').forEach(el=>el.onclick=()=>{
+      const i=+el.dataset.i; sel.has(i)?sel.delete(i):sel.add(i); el.classList.toggle('sel');
+    });
+    $('#go').onclick=()=>{
+      const ok=tiles.every((t,i)=>(t.k===target)===sel.has(i));
+      ok?pass():fail('Не все плитки выбраны верно.');
+    };
+  },
+
+  // 4. Slider to exact value
+  function slider(){
+    const target=rnd(10,90);
+    $('#task').innerHTML = `<div class="q">Установите ползунок ровно на значение <b>${target}</b> и нажмите кнопку.</div>
+      <input class="slider" id="sl" type="range" min="0" max="100" value="${rnd(0,100)}">
+      <div class="row" style="margin:12px 0 0"><span>Значение: <b id="sv"></b></span></div>
+      <div style="margin-top:12px"><button class="primary" id="go">Подтвердить</button></div>`;
+    const upd=()=>$('#sv').textContent=$('#sl').value; upd(); $('#sl').oninput=upd;
+    $('#go').onclick=()=>{ +$('#sl').value===target?pass():fail('Значение не совпадает.'); };
+  },
+
+  // 5. Catch moving dots (reaction)
+  function reflex(){
+    const need=5; let hit=0, misses=0, born=0, alive=true;
+    $('#task').innerHTML = `<div class="q">Нажмите на ${need} кругов, пока они не исчезли. Промахов не более 3.</div>
+      <div id="arena"></div><div class="stat" style="margin-top:8px">Поймано: <b id="h">0</b> / ${need}. Промахи: <b id="mi">0</b> / 3</div>`;
+    const arena=$('#arena');
+    function spawn(){
+      if(!alive||hit>=need) return;
+      const d=document.createElement('div'); d.className='dot';
+      d.style.left=rnd(0,arena.clientWidth-34)+'px'; d.style.top=rnd(0,arena.clientHeight-34)+'px';
+      const t0=performance.now();
+      d.onclick=e=>{
+        e.stopPropagation(); d.remove(); hit++; $('#h').textContent=hit;
+        if(hit>=need){ alive=false; pass(); } else setTimeout(spawn, rnd(150,500));
+      };
+      arena.appendChild(d);
+      setTimeout(()=>{ if(d.isConnected){ d.remove(); if(alive) spawn(); } }, 1400);
+    }
+    arena.onclick=()=>{ if(!alive) return; misses++; $('#mi').textContent=misses; if(misses>3){ alive=false; arena.innerHTML=''; fail('Слишком много промахов.'); setTimeout(render,900); } };
+    spawn();
+  },
+
+  // 6. Honest human check: draw a wobbly line
+  function draw(){
+    $('#task').innerHTML = `<div class="q">Последнее. Проведите мышью или пальцем неровную линию слева направо внутри поля. Идеально прямая линия не засчитается.</div>
+      <canvas id="cv" width="410" height="150" style="width:100%;background:#0f1420;border-radius:8px;touch-action:none;cursor:crosshair"></canvas>
+      <div class="row" style="margin-top:10px"><button id="clr">Очистить</button><button class="primary" id="go">Проверить</button></div>`;
+    const cv=$('#cv'), ctx=cv.getContext('2d'); let pts=[], down=false;
+    const pos=e=>{ const r=cv.getBoundingClientRect(); const p=e.touches?e.touches[0]:e; return {x:(p.clientX-r.left)*cv.width/r.width, y:(p.clientY-r.top)*cv.height/r.height, t:performance.now()}; };
+    const redraw=()=>{ ctx.clearRect(0,0,cv.width,cv.height); ctx.strokeStyle='#4f8cff'; ctx.lineWidth=3; ctx.beginPath(); pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.stroke(); };
+    const start=e=>{ e.preventDefault(); down=true; pts=[pos(e)]; redraw(); };
+    const move=e=>{ if(!down) return; e.preventDefault(); pts.push(pos(e)); redraw(); };
+    const end=()=>{ down=false; };
+    cv.addEventListener('mousedown',start); addEventListener('mouseup',end); cv.addEventListener('mousemove',move);
+    cv.addEventListener('touchstart',start,{passive:false}); cv.addEventListener('touchend',end); cv.addEventListener('touchmove',move,{passive:false});
+    $('#clr').onclick=()=>{ pts=[]; redraw(); say(''); };
+    $('#go').onclick=()=>{
+      if(pts.length<15) return fail('Линия слишком короткая.');
+      const w=pts[pts.length-1].x-pts[0].x;
+      if(w<cv.width*0.5) return fail('Проведите линию длиннее, слева направо.');
+      // straightness: deviation from the chord
+      const a=pts[0], b=pts[pts.length-1];
+      const len=Math.hypot(b.x-a.x,b.y-a.y)||1;
+      let sumDev=0, maxDev=0;
+      pts.forEach(p=>{ const d=Math.abs((b.y-a.y)*p.x-(b.x-a.x)*p.y+b.x*a.y-b.y*a.x)/len; sumDev+=d; maxDev=Math.max(maxDev,d); });
+      const avg=sumDev/pts.length;
+      // timing: robots often produce instant or perfectly uniform strokes
+      const dur=pts[pts.length-1].t-pts[0].t;
+      if(dur<150) return fail('Слишком быстро, как у скрипта.');
+      if(avg<1.2 && maxDev<3) return fail('Слишком ровно. Человеческая рука так не умеет.');
+      humanSignals.trembleSamples=pts.length;
+      pass();
+    };
+  }
+];
+
+function render(){
+  if(step>=tasks.length) return finish();
+  drawBar();
+  stepStart[step]=Date.now();
+  tasks[step]();
+}
+
+function finish(){
+  drawBar();
+  const sec=Math.round((Date.now()-startTime)/1000);
+  const verdict = mistakes===0 ? 'Идеально. Но подозрительно. Вы точно не робот?' : mistakes<4 ? 'Вы не робот. Ошибки это очень по-человечески.' : 'Вы не робот. Ни один робот не ошибся бы так часто.';
+  $('#task').innerHTML = `<div class="end">
+    <h2>Проверка пройдена</h2>
+    <p>${verdict}</p>
+    <p class="stat">Время: ${sec} с. Ошибок: ${mistakes}. Движений мыши: ${humanSignals.mouseMoves}. Нажатий клавиш: ${humanSignals.keyPresses}.</p>
+    <button class="primary" id="again">Пройти заново</button></div>`;
+  $('#again').onclick=()=>{ step=0; mistakes=0; startTime=Date.now(); humanSignals.mouseMoves=0; humanSignals.keyPresses=0; say(''); render(); };
+}
+
+render();
+</script>
+</body>
+</html>
