@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Угадай пароль</title>
+<style>
+  :root{--bg:#0b1020;--panel:#121a33;--text:#d7e3ff;--dim:#7a8bb5;--ok:#2ecc71;--mid:#f1c40f;--no:#3a4466;--acc:#00e5ff}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);font-family:ui-monospace,Menlo,Consolas,monospace;display:flex;justify-content:center;padding:16px}
+  .wrap{width:100%;max-width:520px}
+  h1{color:var(--acc);text-align:center;letter-spacing:2px;margin:8px 0}
+  .bar{display:flex;justify-content:space-between;color:var(--dim);font-size:14px;margin-bottom:10px}
+  .panel{background:var(--panel);border-radius:12px;padding:14px;margin-bottom:12px}
+  .hint{color:var(--mid);font-size:14px;margin:4px 0}
+  .row{display:flex;gap:6px;justify-content:center;margin:6px 0}
+  .cell{width:42px;height:48px;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:bold;border-radius:8px;background:var(--no);color:#fff}
+  .cell.ok{background:var(--ok)}.cell.mid{background:var(--mid);color:#222}
+  .cell.empty{background:transparent;border:2px dashed var(--no)}
+  form{display:flex;gap:8px}
+  input{flex:1;padding:12px;font:inherit;font-size:18px;text-transform:uppercase;background:#0b1020;color:var(--text);border:2px solid var(--no);border-radius:8px;outline:none;letter-spacing:3px}
+  input:focus{border-color:var(--acc)}
+  button{padding:12px 16px;font:inherit;font-weight:bold;background:var(--acc);color:#001;border:0;border-radius:8px;cursor:pointer}
+  button.sec{background:var(--no);color:var(--text)}
+  .msg{text-align:center;min-height:24px;margin:8px 0}
+  .win{color:var(--ok)}.lose{color:#ff5c6c}
+  .legend{font-size:12px;color:var(--dim);text-align:center}
+  .legend b{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:middle;margin:0 3px 0 8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🔐 УГАДАЙ ПАРОЛЬ</h1>
+  <div class="bar"><span id="lvl"></span><span id="tries"></span><span id="score"></span></div>
+  <div class="panel">
+    <div id="hints"></div>
+  </div>
+  <div class="panel" id="board"></div>
+  <div class="msg" id="msg"></div>
+  <form id="f" autocomplete="off">
+    <input id="inp" autofocus placeholder="введи пароль">
+    <button>Взлом</button>
+  </form>
+  <p style="text-align:center"><button class="sec" id="hintBtn">💡 Доп. подсказка (−20)</button> <button class="sec" id="next" hidden>Дальше ▶</button></p>
+  <p class="legend"><b style="background:var(--ok)"></b>буква на месте <b style="background:var(--mid)"></b>есть, но не здесь <b style="background:var(--no)"></b>нет</p>
+</div>
+<script>
+const LEVELS=[
+  {w:"КОТ",h:["Домашнее животное","Говорит «мяу»"],x:"Любит молоко"},
+  {w:"ЛУНА",h:["Светит ночью","Спутник Земли"],x:"Бывает полной"},
+  {w:"ДРАКОН",h:["Сказочное существо","Дышит огнём"],x:"Охраняет сокровища"},
+  {w:"КЛАВИАТУРА",h:["Есть у каждого компьютера","На ней много кнопок"],x:"QWERTY / ЙЦУКЕН"},
+  {w:"ПРОГРАММИСТ",h:["Профессия","Пишет код"],x:"Пьёт много кофе"},
+];
+let li=0,score=0,guesses=[],tries,over,hintsShown,extra=false;
+const $=id=>document.getElementById(id);
+const MAX=6;
+
+function start(){
+  const L=LEVELS[li];over=false;guesses=[];tries=MAX;hintsShown=L.h.length;extra=false;
+  $("next").hidden=true;$("inp").disabled=false;$("inp").value="";$("inp").maxLength=L.w.length;
+  $("inp").focus();$("msg").textContent="";$("msg").className="msg";
+  render();
+}
+function render(){
+  const L=LEVELS[li];
+  $("lvl").textContent=`Уровень ${li+1}/${LEVELS.length}`;
+  $("tries").textContent=`Попыток: ${tries}`;
+  $("score").textContent=`Очки: ${score}`;
+  $("hints").innerHTML=`<div class="hint">Букв в пароле: ${L.w.length}</div>`+
+    L.h.concat(extra?[L.x]:[]).map(h=>`<div class="hint">• ${h}</div>`).join("");
+  let html="";
+  for(const g of guesses){
+    html+=`<div class="row">${g.map(c=>`<div class="cell ${c.s}">${c.l}</div>`).join("")}</div>`;
+  }
+  for(let i=guesses.length;i<MAX;i++){
+    html+=`<div class="row">${"<div class='cell empty'></div>".repeat(L.w.length)}</div>`;
+  }
+  $("board").innerHTML=html;
+}
+function check(g,w){
+  const res=[...g].map(l=>({l,s:"no"})),left={};
+  [...w].forEach((c,i)=>{if(g[i]!==c)left[c]=(left[c]||0)+1});
+  res.forEach((r,i)=>{if(g[i]===w[i])r.s="ok"});
+  res.forEach((r,i)=>{if(r.s!=="ok"&&left[r.l]>0){r.s="mid";left[r.l]--}});
+  return res;
+}
+function end(win){
+  over=true;$("inp").disabled=true;
+  const L=LEVELS[li];
+  if(win){
+    const pts=100+tries*20;score+=pts;
+    $("msg").className="msg win";
+    $("msg").textContent=`✅ Доступ открыт! +${pts} очков`;
+    $("next").textContent=li<LEVELS.length-1?"Дальше ▶":"Играть заново ↻";
+  }else{
+    $("msg").className="msg lose";
+    $("msg").textContent=`⛔ Доступ закрыт. Пароль: ${L.w}`;
+    $("next").textContent="Заново ↻";
+  }
+  $("next").hidden=false;render();
+}
+$("f").addEventListener("submit",e=>{
+  e.preventDefault();if(over)return;
+  const L=LEVELS[li],g=$("inp").value.trim().toUpperCase().replace(/Ё/g,"Е");
+  const w=L.w.replace(/Ё/g,"Е");
+  if(g.length!==w.length){$("msg").className="msg";$("msg").textContent=`Нужно ровно ${w.length} букв`;return}
+  guesses.push(check(g,w));tries--;$("inp").value="";
+  if(g===w)return end(true);
+  if(tries===0)return end(false);
+  $("msg").textContent="";render();
+});
+$("hintBtn").onclick=()=>{
+  if(over||extra)return;
+  extra=true;score=Math.max(0,score-20);render();
+};
+$("next").onclick=()=>{
+  const wasWin=$("msg").classList.contains("win");
+  if(wasWin&&li<LEVELS.length-1)li++;else{li=0;score=0}
+  start();
+};
+start();
+</script>
+</body>
+</html>
